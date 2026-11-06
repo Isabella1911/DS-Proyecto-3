@@ -1,0 +1,10 @@
+# Los datos nunca entran a la imagen: los reales se montan y los sinteticos se generan al construir
+data/
+.git
+.venv/
+venv/
+**/__pycache__/
+.pytest_cache/
+.claude/
+docs/
+.DS_Store

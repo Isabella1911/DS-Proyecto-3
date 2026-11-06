@@ -1,0 +1,22 @@
+# ---- DATOS: nunca se versionan (clausula de confidencialidad de la guia) ----
+data/*
+!data/README.md
+*.xlsx
+*.xls
+*.parquet
+# CSV solo los que vivan fuera de data/ y se agreguen a proposito con git add -f
+data/**/*.csv
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.pytest_cache/
+
+# Editor / SO
+.vscode/
+.idea/
+.claude/
+.DS_Store
+Thumbs.db

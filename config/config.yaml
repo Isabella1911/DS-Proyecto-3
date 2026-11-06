@@ -1,0 +1,45 @@
+# Configuracion del Observatorio de Inteligencia Turistica - Lago de Atitlan (Grupo 3).
+# Rutas relativas a la raiz del repositorio. La carpeta de datos se puede cambiar con la
+# variable de entorno OBS_DATOS (en Docker se monta desde el equipo, nunca se copia a la imagen).
+
+destino:
+  nombre: Lago de Atitlán
+  departamento: Sololá
+
+rutas:
+  # Datos reales (institucionales). NO se versionan (.gitignore).
+  datos: data/raw
+  # Datos sinteticos con la misma estructura, generados con scripts/generar_sinteticos.py
+  sinteticos: data/sinteticos
+  # Salida del ETL: tablas limpias en parquet que lee el tablero
+  procesados: data/procesados
+
+# Archivos de entrada. `patron` admite comodines para tolerar variaciones de nombre.
+fuentes:
+  migracion:
+    patron: "Base_Migracion*.xlsx"
+    hoja: Datos
+  movilidad_mensual:
+    patron: "*movilidad*mensual*.xlsx"
+    hoja: Atitlan
+  movilidad_diaria:
+    patron: "*movilidad*diari*.xlsx"
+    hoja: Atitlan
+  ocupacion:
+    patron: "indice_ocupacion_mensual*.csv"
+  oferta:
+    patron: "oferta_hotelera*.csv"
+
+# Valor de `pais` que identifica a los visitantes nacionales (incorporan factor de expansion)
+pais_nacional: Guatemala
+
+# Periodos sin cobertura de telefonia que se estiman (rule: nunca se muestran como cero)
+estimacion:
+  meses_sin_cobertura: ["2026-01", "2026-02"]
+  # Anios de migracion con los que se construye el perfil estacional (metodo A)
+  anios_perfil: [2023, 2024, 2025]
+  # Tipos de viajero de la base de migracion que se consideran visitantes
+  tipos_migracion: [Turista, Excursionista]
+
+# Ventana en la que coinciden afluencia (telefonia) y ocupacion hotelera
+ventana_coincidente: ["2025-09", "2025-12"]
