@@ -1,0 +1,18 @@
+# Observatorio Turistico - Lago de Atitlan (Grupo 3)
+#
+#   docker compose up --build       # tablero en http://localhost:8501
+#   docker compose down
+#
+# Datos reales (opcional): coloque los archivos institucionales en ./data/raw o indique otra carpeta con
+# DATOS_DIR=/ruta/a/los/datos. Se montan en solo lectura; si no hay, el tablero usa datos sinteticos.
+# El puerto solo se publica en 127.0.0.1: el tablero no queda expuesto a la red.
+
+services:
+  tablero:
+    build: .
+    image: observatorio-atitlan:latest
+    ports:
+      - "127.0.0.1:8501:8501"
+    volumes:
+      - ${DATOS_DIR:-./data/raw}:/app/data/raw:ro
+    restart: unless-stopped
