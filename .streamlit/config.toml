@@ -38,6 +38,7 @@ family = "PlexMono"
 url = "app/static/tipografia/IBMPlexMono-Medium.ttf"
 weight = "500"
 
+# Barra lateral blanca; cada pagina lleva el degradado de su modulo (ver src/ui.py y src/estilo.py).
 [theme.sidebar]
 backgroundColor = "#ffffff"
 secondaryBackgroundColor = "#f4f4f4"
