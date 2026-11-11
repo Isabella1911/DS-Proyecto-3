@@ -13,7 +13,7 @@ from src.datos import corto, origenes, tabla
 from src.estilo import formato_numero
 from src.graficas import MES_ES, fig_estadia_paises, fig_municipios, fig_segmentacion, fig_top_paises
 from src.normalizar import MUNICIPIOS
-from src.ui import aviso_sinteticos, barra_filtros, encabezado_pagina, indicadores, mosaico, nota, sin_datos
+from src.ui import aviso_sinteticos, barra_filtros, encabezado_pagina, indicadores, mosaico, sin_datos
 
 m_todo = tabla("mensual")
 periodos = sorted(m_todo["periodo"].unique())
@@ -25,6 +25,7 @@ encabezado_pagina(
     "¿Cuántos visitantes recibe el lago, cuánto se quedan y de dónde vienen? Haga clic en uno o varios municipios "
     "para que todo el módulo se recalcule para esa selección.",
     f"Telefonía mensual<br><b>{len(periodos)} meses</b> con dato",
+    tema="m1_demanda",
 )
 aviso_sinteticos(origenes())
 
@@ -89,13 +90,6 @@ with col_b:
         {"etiqueta": "Turistas con pernocta", "valor": f"{k['pct_turistas']:.0%}",
          "contexto": f"excursionistas: {1 - k['pct_turistas']:.0%}"},
     ])
-    nota("observado",
-         f"{nombre_ambito}: {formato_numero(k['visitantes_mes'])} visitantes por mes en promedio; "
-         f"el {k['pct_extranjeros']:.0%} son extranjeros. Los turistas que pernoctan se quedan "
-         f"{k['estadia_media']:.1f} días en promedio.")
-    if es_suma:
-        nota("interpretacion", "Con varios municipios, los volúmenes son la **suma de municipios**: una cota superior "
-             "del total del lago. La estadía media y los porcentajes sí son comparables porque son cocientes.")
 
 # --- Segmentacion y mercados ---------------------------------------------------------------------
 c1, c2 = st.columns(2, gap="small")
@@ -140,28 +134,15 @@ with c3, mosaico(
         st.plotly_chart(fig_estadia_paises(top, ind.estadia_media(ms[ms["origen"] == "Nacional"]), k["estadia_media"]),
                         key="m1_estadia", width="stretch")
 
-with c4, st.container(key="tile-m1-lectura"):
-    st.html('<div class="ot-tt">Lectura del módulo</div><div class="ot-ts">Qué muestran los datos de la selección</div>')
-    if not top.empty:
-        lider = top.index[0]
-        larga = top["estadia_media"].idxmax()
-        nota("observado", f"**{lider}** es el primer mercado extranjero ({top['pct'].iloc[0]:.0%} de los extranjeros). "
-             f"**{larga}** es el de estadía más larga ({top['estadia_media'].max():.1f} días).")
+with c4, st.container(key="tile-m1-tabla"):
+    st.html('<div class="ot-tt">Tabla por municipio</div><div class="ot-ts">Promedios mensuales de cada pueblo '
+            '(periodo completo, los 10 municipios)</div>')
     perfil = ind.por_municipio(m)
     if not perfil.empty:
-        mas_largo = perfil["estadia_media"].idxmax()
-        nota("interpretacion", f"**{corto(mas_largo)}** tiene la estadía más larga del lago "
-             f"({perfil.loc[mas_largo, 'estadia_media']:.1f} días) y **{corto(perfil['visitantes_mes'].idxmax())}** el mayor "
-             "volumen: el lago combina puertas de entrada con destinos de larga estancia (se desarrolla en el módulo 4).")
-    with st.expander("Tabla por municipio", icon=":material/table:"):
-        st.dataframe(
-            perfil.rename(index=corto).rename(columns={
-                "visitantes_mes": "Visitantes/mes", "dias_persona_mes": "Días-persona/mes", "estadia_media": "Estadía media",
-                "pct_extranjeros": "% extranjeros", "pct_turistas": "% turistas"}),
-            column_config={"% extranjeros": st.column_config.NumberColumn(format="percent"),
-                           "% turistas": st.column_config.NumberColumn(format="percent"),
-                           "Estadía media": st.column_config.NumberColumn(format="%.2f"),
-                           "Visitantes/mes": st.column_config.NumberColumn(format="localized"),
-                           "Días-persona/mes": st.column_config.NumberColumn(format="localized")},
-            width="stretch",
-        )
+        # Tabla HTML (st.table) para que tome los colores del modulo; ademas no ofrece descarga de datos
+        tabla_mun = perfil.rename(index=corto).rename_axis("Municipio").rename(columns={
+            "visitantes_mes": "Visitantes/mes", "dias_persona_mes": "Días-persona/mes", "estadia_media": "Estadía media",
+            "pct_extranjeros": "% extranjeros", "pct_turistas": "% turistas"})
+        st.table(tabla_mun.style.format({
+            "Visitantes/mes": "{:,.0f}", "Días-persona/mes": "{:,.0f}", "Estadía media": "{:.2f}",
+            "% extranjeros": "{:.0%}", "% turistas": "{:.0%}"}))

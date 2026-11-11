@@ -276,6 +276,61 @@ def fig_cuadrante(perfil: pd.DataFrame, seleccionado: str | None) -> go.Figure:
     return aplicar_estilo(fig, alto=460)
 
 
+# Etiquetas de los pueblos del oeste a un lado para que no se encimen
+POSICION_ETIQUETA = {
+    "San Juan La Laguna": "middle left", "San Pablo La Laguna": "middle left", "San Pedro La Laguna": "middle right",
+    "San Marcos La Laguna": "top right", "San Antonio Palopó": "middle right", "Santa Catarina Palopó": "middle right",
+    "San Lucas Tolimán": "bottom center", "Santiago Atitlán": "bottom center",
+}
+
+
+def fig_mapa_lago(perfil: pd.DataFrame, coordenadas: dict[str, tuple[float, float]], contorno: list[tuple[float, float]],
+                  volcanes: dict[str, tuple[float, float]], seleccionado: str | None) -> go.Figure:
+    """Portada: los 10 municipios sobre un mapa esquematico del lago (sin teselas en linea).
+    Tamano = visitantes/mes (area), color = clase. Cada pueblo es clicable y lleva su nombre en customdata."""
+    p = perfil[perfil.index.isin(coordenadas)].copy()
+    p["lat"] = [coordenadas[m][0] for m in p.index]
+    p["lon"] = [coordenadas[m][1] for m in p.index]
+    escala = 48 / p["visitantes_mes"].max() ** 0.5
+    fig = go.Figure()
+    lat, lon = zip(*(contorno + contorno[:1]))
+    fig.add_scatter(x=lon, y=lat, mode="lines", fill="toself", fillcolor="#cfe9f6", line=dict(color="#4fb0dc", width=2),
+                    hoverinfo="skip", showlegend=False)
+    vlat, vlon = zip(*volcanes.values())
+    fig.add_scatter(x=vlon, y=vlat, mode="markers+text", text=list(volcanes), textposition="bottom center",
+                    textfont=dict(size=11, color="#4b6475"), hoverinfo="skip", showlegend=False,
+                    marker=dict(symbol="triangle-up", size=22, color="#a9c3d1", line=dict(color="#7b93a3", width=1)))
+    for clase in [c for c in COLORES_CLASE if c in set(p["clase"])]:
+        g = p[p["clase"] == clase]
+        fig.add_scatter(
+            x=g["lon"], y=g["lat"], mode="markers+text", name=clase,
+            text=[MUNICIPIO_CORTO.get(m, m) for m in g.index],
+            textposition=[POSICION_ETIQUETA.get(m, "top center") for m in g.index],
+            textfont=dict(size=12, color="#00314d"),
+            customdata=list(zip(g.index, g["visitantes_mes"], g["estadia_media"], g["pct_extranjeros"])),
+            marker=dict(size=(g["visitantes_mes"] ** 0.5 * escala).clip(lower=12), color=COLORES_CLASE[clase],
+                        opacity=[1 if seleccionado in (None, m) else 0.4 for m in g.index],
+                        line=dict(color=["#00314d" if m == seleccionado else "white" for m in g.index],
+                                  width=[3 if m == seleccionado else 1.5 for m in g.index])),
+            selected=dict(marker=dict(opacity=1)), unselected=dict(marker=dict(opacity=0.4)),
+            hovertemplate="<b>%{customdata[0]}</b><br>%{customdata[1]:,.0f} visitantes/mes"
+                          "<br>estadía %{customdata[2]:.2f} días<br>%{customdata[3]:.0%} extranjeros<extra>" + clase + "</extra>",
+        )
+    # Sin fixedrange: con ambos ejes fijos Plotly no crea el area de clic y la seleccion no funciona.
+    # El zoom se evita con dragmode=False y scrollZoom=False en la configuracion del grafico.
+    fig.update_xaxes(visible=False, range=[-91.33, -91.07])
+    fig.update_yaxes(visible=False, range=[14.565, 14.765], scaleanchor="x", scaleratio=1.034)
+    fig.update_layout(
+        margin=dict(l=0, r=0, t=0, b=0), height=500, clickmode="event+select", dragmode=False,
+        plot_bgcolor="#f3f8f4", paper_bgcolor="#f3f8f4",
+        legend=dict(orientation="h", x=0.01, y=0.01, xanchor="left", yanchor="bottom", bgcolor="rgba(255,255,255,.9)",
+                    font=dict(size=12, color="#00314d"), title=dict(text="Clase del municipio  ")),
+        font=dict(family='PlexSans, "IBM Plex Sans", Arial, sans-serif'),
+        hoverlabel=dict(bgcolor="white", font_size=12),
+    )
+    return fig
+
+
 def fig_mensual_origen(m: pd.DataFrame) -> go.Figure:
     t = m.pivot_table(index="periodo", columns="origen", values="visitantes", aggfunc="sum")
     t = t.reindex(pd.date_range(t.index.min(), t.index.max(), freq="MS"))
@@ -334,7 +389,7 @@ def fig_cruce_ventana(cruce: pd.DataFrame) -> go.Figure:
 
 def fig_capacidad_anual(anual: pd.DataFrame, medida: str, anio_sel: int | None) -> go.Figure:
     """Barras de un corte por anio (completos), para elegir el anio con un clic."""
-    colores = [COLOR_DESTACADO if a == anio_sel else COLOR_HISTORIA for a in anual.index]
+    colores = [COLOR_DESTACADO if a == anio_sel else SECUENCIAL_AZUL[3] for a in anual.index]
     fig = go.Figure(go.Bar(
         x=[str(a) for a in anual.index], y=anual[medida], marker_color=colores, customdata=list(anual.index),
         text=[f"{v:,.0f}" for v in anual[medida]], textposition="outside", cliponaxis=False,

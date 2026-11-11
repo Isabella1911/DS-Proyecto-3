@@ -13,13 +13,13 @@ import streamlit as st
 from src import indicadores as ind
 from src import territorio as te
 from src.datos import corto, origenes, tabla
-from src.estilo import COLORES_CLASE, formato_numero
+from src.estilo import COLORES_CLASE, color, formato_numero
 from src.graficas import (
     fig_cuadrante, fig_estacionalidad_clase, fig_huella_semanal, fig_matriz_perfiles, fig_mensual_origen,
     fig_mercados_clase, fig_patron_semanal, fig_top_paises,
 )
 from src.normalizar import MUNICIPIOS
-from src.ui import aviso_sinteticos, barra_filtros, encabezado_pagina, indicadores, mosaico, nota
+from src.ui import aviso_sinteticos, barra_filtros, encabezado_pagina, indicadores, mosaico
 
 m = tabla("mensual")
 d = tabla("diaria")
@@ -39,6 +39,7 @@ encabezado_pagina(
     "larga estancia (pocos visitantes, mayoría extranjera, muchas noches) y los de visita corta (excursiones, sobre "
     "todo de nacionales y en fin de semana).",
     "Telefonía mensual y diaria<br><b>10 municipios</b>",
+    tema="m4_municipios",
 )
 aviso_sinteticos(origenes())
 
@@ -88,20 +89,12 @@ with c2, st.container(key="tile-m4-clases"):
     for clase, fila in por_clase.iterrows():
         miembros = ", ".join(corto(x) for x in perfil.index[clases == clase])
         st.html(
-            f'<div style="margin:.45rem 0 .1rem"><span class="ot-tag" style="background:{COLORES_CLASE[clase]};color:#fff">'
+            f'<div style="margin:.45rem 0 .1rem"><span class="ot-tag" style="background:{color(COLORES_CLASE[clase])};color:#fff">'
             f'{clase}</span> <span style="font-size:.8rem;color:#525252">{miembros}</span></div>'
             f'<div style="font-size:.8rem;color:#393939;line-height:1.5">{formato_numero(fila["visitantes_mes"])} visitantes/mes · '
             f'{fila["estadia_media"]:.1f} días · {fila["pct_extranjeros"]:.0%} extranjeros · '
             f'{fila["pct_excursionistas"]:.0%} excursionistas · finde ×{fila["presion_finde"]:.2f}</div>'
         )
-    distintos = perfil.index[~perfil["coinciden"]]
-    if len(distintos):
-        detalle = "; ".join(f"{corto(x)}: regla = {perfil.loc[x, 'clase_regla']}, k-medias = {perfil.loc[x, 'clase_kmedias']}"
-                            for x in distintos)
-        nota("interpretacion", f"Los métodos difieren en {len(distintos)} municipio(s) — {detalle}. Son pueblos "
-             "de transición entre dos clases: la matriz de perfiles muestra en qué indicador se parecen a cada una.")
-    else:
-        nota("interpretacion", "Regla y k-medias coinciden en los 10 municipios: la clasificación es robusta.")
 
 # --- Matriz de perfiles y huella semanal -----------------------------------------------------------
 c3, c4 = st.columns([1.25, 1], gap="small")
@@ -165,21 +158,3 @@ with c9, mosaico("m4-paises", "Principales mercados extranjeros", "Top 8 del mun
     top = ind.top_paises(g, 8)
     if not top.empty:
         st.plotly_chart(fig_top_paises(top), key="m4_paises", width="stretch")
-
-# --- Hallazgos ----------------------------------------------------------------------------------------
-with st.container(key="tile-m4-hallazgos"):
-    st.html('<div class="ot-tt">Hallazgos del reto</div><div class="ot-ts">Lo que muestran los datos actuales</div>')
-    hub = por_clase.loc["Hub comercial"] if "Hub comercial" in por_clase.index else None
-    larga = por_clase.loc["Larga estancia"] if "Larga estancia" in por_clase.index else None
-    corta = por_clase.loc["Visita corta"] if "Visita corta" in por_clase.index else None
-    if hub is not None and larga is not None:
-        nota("observado", f"Los pueblos de **larga estancia** reciben {larga['visitantes_mes'] / hub['visitantes_mes']:.0%} de "
-             f"los visitantes del hub, pero cada turista se queda {larga['estadia_media']:.1f} días frente a "
-             f"{hub['estadia_media']:.1f}: generan muchas más noches por visitante.")
-    if corta is not None and larga is not None:
-        nota("observado", f"Los de **visita corta** son {corta['pct_excursionistas']:.0%} excursionistas, mayoría nacional "
-             f"({1 - corta['pct_extranjeros']:.0%}), y en fin de semana reciben {corta['presion_finde']:.2f} veces un día "
-             f"hábil (larga estancia: {larga['presion_finde']:.2f}).")
-    nota("interpretacion", "Implicación para el INGUAT: la gestión de flujo (transporte lacustre, seguridad, servicios) "
-         "debe reforzarse los fines de semana y feriados en los pueblos de visita corta, mientras que la promoción "
-         "internacional de estadías largas tiene su mejor palanca en los pueblos de larga estancia.")

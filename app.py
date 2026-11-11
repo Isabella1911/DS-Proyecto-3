@@ -6,14 +6,18 @@ Ejecutar:
 
 import streamlit as st
 
-from src.ui import FUENTE_DATOS, estilo_global
+from src.estilo import usar_tema
+from src.ui import estilo_global
+
+# Icono: el lago con sus tres volcanes (scripts/generar_iconos.py). Variantes: "rainbow", "teal", "azul".
+ICONO = "rainbow"
 
 st.set_page_config(
     page_title="Observatorio Turístico · Lago de Atitlán",
-    page_icon="static/icono.svg",
+    page_icon=f"static/icono_{ICONO}.svg",
     layout="wide",
 )
-st.logo("static/logo.svg", icon_image="static/icono.svg", size="large")
+st.logo(f"static/logo_{ICONO}.svg", icon_image=f"static/icono_{ICONO}.svg", size="large")
 estilo_global()
 
 paginas = st.navigation(
@@ -23,15 +27,14 @@ paginas = st.navigation(
         ],
         "Módulos": [
             st.Page("paginas/m1_demanda.py", title="1 · Demanda y mercados", icon=":material/groups:"),
-            st.Page("paginas/m2_temporal.py", title="2 · Dinámica temporal y pronóstico", icon=":material/calendar_month:"),
+            st.Page("paginas/m2_temporal.py", title="2 · Dinámica temporal y eventos", icon=":material/calendar_month:"),
             st.Page("paginas/m3_oferta.py", title="3 · Oferta hotelera", icon=":material/hotel:"),
             st.Page("paginas/m4_municipios.py", title="4 · Red de municipios", icon=":material/hub:"),
         ],
         "Metodología": [
             st.Page("paginas/calidad.py", title="Calidad de los datos", icon=":material/fact_check:"),
-            st.Page("paginas/acerca.py", title="Acerca del observatorio", icon=":material/info:"),
         ],
     }
 )
-st.sidebar.caption(FUENTE_DATOS)
+usar_tema(None)  # cada modulo fija el suyo en su encabezado; la portada y metodologia usan la paleta base
 paginas.run()

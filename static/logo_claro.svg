@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="260" height="40" viewBox="0 0 260 40">
+  <rect x="0" y="8" width="7" height="24" fill="#ffffff"/>
+  <rect x="9" y="14" width="7" height="18" fill="#a9daf0"/>
+  <rect x="18" y="20" width="7" height="12" fill="#4fb0dc"/>
+  <text x="36" y="19" font-family="IBM Plex Sans, Helvetica, Arial, sans-serif" font-size="14" font-weight="600" fill="#ffffff">Observatorio de Turismo</text>
+  <text x="36" y="33" font-family="IBM Plex Sans, Helvetica, Arial, sans-serif" font-size="11" fill="#a9daf0">Guatemala · Lago de Atitlán</text>
+</svg>

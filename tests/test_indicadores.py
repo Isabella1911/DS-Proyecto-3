@@ -91,6 +91,22 @@ def test_kmedias_separa_grupos_evidentes():
     assert clases[["e", "f"]].eq("Visita corta").all()
 
 
+def test_graficas_toman_el_color_del_modulo():
+    import plotly.graph_objects as go
+
+    from src import estilo
+
+    try:
+        estilo.usar_tema("m3_oferta")
+        fig = estilo.aplicar_estilo(go.Figure(go.Bar(x=[1], y=[1], marker_color=estilo.COLORES_ORIGEN["Nacional"])))
+        assert fig.data[0].marker.color == estilo.PALETAS_GRAFICAS["m3_oferta"][estilo.COLORES_ORIGEN["Nacional"].lower()]
+        assert estilo.color(estilo.COLOR_OCUPACION) != estilo.COLOR_OCUPACION
+    finally:
+        estilo.usar_tema(None)
+    fig = estilo.aplicar_estilo(go.Figure(go.Bar(x=[1], y=[1], marker_color=estilo.COLORES_ORIGEN["Nacional"])))
+    assert fig.data[0].marker.color == estilo.COLORES_ORIGEN["Nacional"]
+
+
 def test_cruce_ventana_tasa_implicita():
     from src import oferta as of
 

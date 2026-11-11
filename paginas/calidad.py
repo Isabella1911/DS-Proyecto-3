@@ -24,8 +24,8 @@ with mosaico("cal-fuentes", "Fuentes", "Archivo leído, origen (real o sintétic
     st.dataframe(fuentes, width="stretch")
 
 ctrl = pd.DataFrame(cal["controles"])
-ICONO = {"ok": "✅ ok", "aviso": "⚠️ aviso", "error": "⛔ error"}
-ctrl["estado"] = ctrl["estado"].map(ICONO)
+ESTADO = {"ok": "OK", "aviso": "Aviso", "error": "Error"}
+ctrl["estado"] = ctrl["estado"].map(ESTADO).fillna(ctrl["estado"])
 with mosaico("cal-controles", "Controles aplicados", "Un renglón por control y fuente", "observado",
              "**aviso**: se corrigió o se excluyó y se documenta. **error**: dato imposible (p. ej. días-persona menores "
              "que visitantes) que hay que revisar en la fuente."):

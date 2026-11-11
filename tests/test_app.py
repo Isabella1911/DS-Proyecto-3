@@ -37,14 +37,11 @@ def test_m1_origen(origen):
     assert not at.exception
 
 
-def test_m2_todos_los_ambitos_y_metodos():
+def test_m2_todos_los_ambitos():
     at = correr("paginas/m2_temporal.py")
     for amb in at.selectbox(key="m2_ambito").options:
         at.selectbox(key="m2_ambito").set_value(amb).run()
         assert not at.exception, amb
-    for met in ["A", "B"]:
-        at.button_group(key="m2_metodo").set_value(met).run()
-        assert not at.exception, met
 
 
 def test_m3_medidas():

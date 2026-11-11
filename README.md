@@ -51,7 +51,7 @@ python -m pytest tests                              # 26 pruebas
 ## Estructura
 
 ```text
-app.py                     Navegación (Inicio, 4 módulos, Calidad, Acerca)
+app.py                     Navegación (Inicio, 4 módulos, Calidad de los datos)
 paginas/                   Una página por módulo
 src/
   normalizar.py            Limpieza de textos (municipios, países, departamentos), coma decimal y fechas

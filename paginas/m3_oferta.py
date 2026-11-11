@@ -10,14 +10,14 @@ import streamlit as st
 
 from src import indicadores as ind
 from src import oferta as of
-from src.datos import CONFIG, corto, origenes, tabla
+from src.datos import CONFIG, origenes, tabla
 from src.estilo import formato_numero
 from src.graficas import (
     MES_ES, fig_afluencia_relativa, fig_capacidad, fig_capacidad_anual, fig_cruce_ventana, fig_heatmap_ocupacion,
     fig_ocupacion,
 )
 from src.normalizar import departamento
-from src.ui import aviso_sinteticos, barra_filtros, encabezado_pagina, indicadores, mosaico, nota, sin_datos
+from src.ui import aviso_sinteticos, barra_filtros, encabezado_pagina, indicadores, mosaico, sin_datos
 
 DEPTO = departamento(CONFIG["destino"]["departamento"])
 oferta = tabla("oferta")
@@ -30,6 +30,7 @@ encabezado_pagina(
     f"¿Alcanza la capacidad de alojamiento de {DEPTO} para la demanda del lago? Capacidad instalada, ocupación "
     "mensual y su cruce con la afluencia en la única ventana en que ambas series coinciden.",
     f"Oferta 2022–2026 · Ocupación 2023–2025<br>Departamento: <b>{DEPTO}</b>",
+    tema="m3_oferta",
 )
 aviso_sinteticos(origenes())
 
@@ -121,8 +122,7 @@ with c4, mosaico(
                f"Más vacíos: {', '.join(MES_ES[i - 1] for i in perfil_mes.nsmallest(3).index)}.")
 
 # --- Ventana coincidente ---------------------------------------------------------------------------
-c5, c6 = st.columns([1.5, 1], gap="small")
-with c5, mosaico(
+with mosaico(
     "m3-ventana", "Ventana coincidente: demanda de noches vs. capacidad", f"{MES_ES[v0.month - 1]}–{MES_ES[v1.month - 1]} {v1.year}, "
     "únicos meses con telefonía y ocupación", "observado",
     "**¿La capacidad formal alcanza para las noches que pasan los turistas en el lago?**\n\n"
@@ -145,28 +145,9 @@ with c5, mosaico(
                 "ocupacion_oficial": st.column_config.NumberColumn("Ocupación oficial", format="percent"),
                 "brecha": st.column_config.NumberColumn("Brecha (pp)", format="percent"),
             })
-with c6, st.container(key="tile-m3-lectura"):
-    st.html('<div class="ot-tt">Lectura del cruce</div><div class="ot-ts">Ventana coincidente</div>')
-    if len(cruce):
-        brecha = cruce["brecha"].mean()
-        r = cruce["noches_demandadas"].corr(cruce["ocupacion_oficial"]) if len(cruce) >= 3 else float("nan")
-        nota("observado", f"Los turistas del lago demandan en promedio {formato_numero(cruce['noches_demandadas'].mean())} "
-             f"noches al mes, el {cruce['tasa_implicita'].mean():.0%} de las plazas-noche formales de {DEPTO}; la ocupación "
-             f"oficial fue {cruce['ocupacion_oficial'].mean():.0%}. Ambas se mueven juntas (correlación {r:.2f}, 4 meses).")
-        if brecha > 0:
-            nota("interpretacion", "La tasa implícita **supera** a la oficial: parte de las noches ocurre fuera de la "
-                 "hotelería formal registrada (plataformas digitales como Airbnb, casas de familia) o la suma de "
-                 "municipios duplica turistas que se movieron entre pueblos.")
-        else:
-            nota("interpretacion", "La tasa implícita **queda por debajo** de la oficial: los hoteles de "
-                 f"{DEPTO} también reciben huéspedes que la telefonía del lago no capta (otros municipios del "
-                 "departamento, viajeros de negocios) o hay visitantes sin teléfono detectado.")
-    nota("interpretacion", "Hotelería formal y plataformas digitales son universos distintos: este cruce no sustituye un "
-         "registro de alojamiento no formal.")
 
 # --- Subdestinos -----------------------------------------------------------------------------------
-c7, c8 = st.columns([1.3, 1], gap="small")
-with c7, mosaico(
+with mosaico(
     "m3-sub", "Afluencia relativa entre municipios", "Índice frente a Panajachel = 100 (no participación sobre un total)",
     "observado",
     "**¿Cómo se reparte la afluencia dentro del lago?**\n\nCada municipio se compara con Panajachel. Se usa un índice y "
@@ -181,14 +162,3 @@ with c7, mosaico(
     if "Panajachel" in perfil.index and perfil.loc["Panajachel", col] > 0:
         rel = perfil[col] / perfil.loc["Panajachel", col] * 100
         st.plotly_chart(fig_afluencia_relativa(rel), key="m3_sub", width="stretch")
-with c8, st.container(key="tile-m3-sub-lectura"):
-    st.html('<div class="ot-tt">Lectura territorial</div><div class="ot-ts">Dónde se concentra la carga</div>')
-    perfil_todo = ind.por_municipio(m)
-    rel_v = perfil_todo["visitantes_mes"] / perfil_todo.loc["Panajachel", "visitantes_mes"] * 100
-    rel_n = perfil_todo["dias_persona_mes"] / perfil_todo.loc["Panajachel", "dias_persona_mes"] * 100
-    sube = (rel_n - rel_v).idxmax()
-    nota("observado", f"Fuera de Panajachel, **{corto(rel_v.drop('Panajachel').idxmax())}** es el municipio con más "
-         f"visitantes (índice {rel_v.drop('Panajachel').max():.0f}).")
-    nota("interpretacion", f"Al medir en días-persona, **{corto(sube)}** gana más peso relativo ({rel_v[sube]:.0f} → "
-         f"{rel_n[sube]:.0f}): recibe menos personas pero se quedan más noches, lo que presiona la oferta local de "
-         "alojamiento de forma distinta a las puertas de entrada (módulo 4).")
