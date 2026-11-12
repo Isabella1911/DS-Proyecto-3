@@ -8,7 +8,8 @@ from plotly.subplots import make_subplots
 
 from src.estilo import (
     COLOR_DESTACADO, COLOR_ESTIMADO, COLOR_EVENTO, COLOR_HISTORIA, COLOR_OCUPACION, COLOR_REAL, COLORES_CLASE,
-    COLORES_ORIGEN, COLORES_SEGMENTO, CUADRICULA, SECUENCIAL_AZUL, aplicar_estilo,
+    COLORES_ORIGEN, COLORES_SEGMENTO, CUADRICULA, PATRON_EXCURSIONISTA, SECUENCIAL_AZUL, SIMBOLOS_CLASE, TRAZOS_CLASE,
+    aplicar_estilo,
 )
 from src.normalizar import EVENTO_REGULAR, MUNICIPIO_CORTO, SEG_EXCURSIONISTA, SEG_TURISTA
 
@@ -45,7 +46,8 @@ def fig_segmentacion(seg: pd.DataFrame) -> go.Figure:
     fig = make_subplots(specs=[[{"secondary_y": True}]])
     x = [_mes(t) for t in seg.index]
     for s in [SEG_TURISTA, SEG_EXCURSIONISTA]:
-        fig.add_bar(x=x, y=seg[s], name=s, marker_color=COLORES_SEGMENTO[s],
+        fig.add_bar(x=x, y=seg[s], name=s,
+                    marker=dict(color=COLORES_SEGMENTO[s], pattern_shape=PATRON_EXCURSIONISTA if s == SEG_EXCURSIONISTA else ""),
                     hovertemplate="%{x}<br>" + s + ": %{y:,.0f}<extra></extra>")
     fig.add_scatter(x=x, y=seg["pct_turistas"], name="% turistas", mode="lines+markers", line=dict(color=COLOR_REAL, width=1.5),
                     connectgaps=False, secondary_y=True, hovertemplate="%{x}<br>%{y:.0%} turistas<extra></extra>")
@@ -262,6 +264,7 @@ def fig_cuadrante(perfil: pd.DataFrame, seleccionado: str | None) -> go.Figure:
             text=[MUNICIPIO_CORTO.get(m, m) for m in g.index], textposition="top center",
             customdata=list(zip(g.index, g["pct_extranjeros"])),
             marker=dict(size=12 + 40 * g["pct_extranjeros"], color=COLORES_CLASE.get(clase, COLOR_HISTORIA), opacity=0.85,
+                        symbol=SIMBOLOS_CLASE.get(clase, "circle"),
                         line=dict(color=["#161616" if m == seleccionado else "white" for m in g.index],
                                   width=[3 if m == seleccionado else 1 for m in g.index])),
             hovertemplate="<b>%{customdata[0]}</b><br>%{x:,.0f} visitantes/mes<br>estadía %{y:.2f} días"
@@ -416,7 +419,8 @@ def fig_estacionalidad_clase(t: pd.DataFrame) -> go.Figure:
     fig = go.Figure()
     for clase in t.columns:
         fig.add_scatter(x=t.index, y=t[clase], name=clase, mode="lines+markers", connectgaps=False,
-                        line=dict(color=COLORES_CLASE.get(clase, COLOR_HISTORIA), width=2),
+                        line=dict(color=COLORES_CLASE.get(clase, COLOR_HISTORIA), width=2, dash=TRAZOS_CLASE.get(clase, "solid")),
+                        marker=dict(symbol=SIMBOLOS_CLASE.get(clase, "circle"), size=7),
                         hovertemplate="%{x|%b %Y}<br>índice %{y:.0f}<extra>" + clase + "</extra>")
     fig.add_hline(y=100, line=dict(color=COLOR_HISTORIA, dash="dot", width=1))
     fig.update_yaxes(title_text="Índice (promedio = 100)")

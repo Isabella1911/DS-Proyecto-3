@@ -14,8 +14,12 @@ import plotly.graph_objects as go
 # Categoricos del observatorio. Cada color significa SIEMPRE lo mismo en todas las paginas.
 # Azul / naranja vienen de la paleta validada del Lab 10 (pasan la prueba de daltonismo entre si).
 COLORES_ORIGEN = {"Nacional": "#2a78d6", "Extranjero": "#eb6834"}
-COLORES_SEGMENTO = {"Turista (> 1 día)": "#1baf7a", "Excursionista (< 1 día)": "#e87ba4"}
-COLOR_EVENTO = "#eda100"          # dias con festividad (marcadores y franjas)
+# Segmento y festividad: mismo tono que la paleta original, oscurecido en OKLab lo justo para llegar a
+# contraste 3:1 sobre blanco (WCAG 1.4.11). Verde y rosa se confunden con deuteranopia: el excursionista
+# lleva ademas trama de puntos (PATRON_EXCURSIONISTA), para no depender solo del color (WCAG 1.4.1).
+COLORES_SEGMENTO = {"Turista (> 1 día)": "#01a773", "Excursionista (< 1 día)": "#dc7099"}
+PATRON_EXCURSIONISTA = "."
+COLOR_EVENTO = "#cd8300"          # dias con festividad (marcadores y franjas)
 COLOR_REAL = "#161616"            # dato observado: tinta
 COLOR_HISTORIA = "#898781"        # referencia / contexto: gris
 COLOR_ESTIMADO = "#8a3ffc"        # toda Estimacion: violeta y linea discontinua
@@ -27,6 +31,9 @@ COLORES_CLASE = {
     "Visita corta": "#9f1853",
     "Intermedio": "#898781",
 }
+# Segunda senal de la clase (azul marino y vino se confunden con protanopia): forma del marcador y trazo
+SIMBOLOS_CLASE = {"Hub comercial": "circle", "Larga estancia": "diamond", "Visita corta": "square", "Intermedio": "circle-open"}
+TRAZOS_CLASE = {"Hub comercial": "solid", "Larga estancia": "dash", "Visita corta": "dot", "Intermedio": "dashdot"}
 
 # Secuencial (magnitud): azul claro -> oscuro
 SECUENCIAL_AZUL = ["#cde2fb", "#9ec5f4", "#6da7ec", "#3987e5", "#256abf", "#184f95", "#0d366b"]
@@ -77,6 +84,8 @@ def aplicar_estilo(fig: go.Figure, alto: int = 420) -> go.Figure:
         hoverlabel=dict(bgcolor="white", font=dict(family=FUENTE, color=TINTA), bordercolor=CUADRICULA),
         separators=".,",
         bargap=0.25,
+        # Sin zoom ni paneo al arrastrar: la unica interaccion es el clic de las graficas enlazadas
+        dragmode=False,
     )
     fig.update_xaxes(
         showgrid=False, linecolor=EJE, automargin=True, tickfont=dict(color=TINTA_TENUE), title_font=dict(color=TINTA_SECUNDARIA)
