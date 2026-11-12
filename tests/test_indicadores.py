@@ -81,7 +81,7 @@ def test_kmedias_separa_grupos_evidentes():
     p = pd.DataFrame({
         "visitantes_mes": [10000, 9000, 1000, 1100, 1200, 900],
         "estadia_media": [2.0, 2.1, 5.0, 5.2, 1.2, 1.3],
-        "pct_extranjeros": [0.4, 0.4, 0.8, 0.8, 0.1, 0.1],
+        "iee": [0.9, 0.9, 1.8, 1.8, 0.3, 0.3],
         "presion_finde": [1.3, 1.3, 1.1, 1.1, 1.8, 1.8],
     }, index=list("abcdef"))
     p["log_volumen"] = np.log10(p["visitantes_mes"])
@@ -91,14 +91,21 @@ def test_kmedias_separa_grupos_evidentes():
     assert clases[["e", "f"]].eq("Visita corta").all()
 
 
-def test_cruce_ventana_tasa_implicita():
+def test_cruce_ventana_captacion_por_origen():
     from src import oferta as of
 
-    m = _mensual([("Panajachel", "2025-09-01", "Alemania", "Extranjero", T, 100, 300)])
-    anual = pd.DataFrame({"plazas_cama": [1000.0]}, index=pd.Index([2025], name="anio"))
+    m = _mensual([
+        ("Panajachel", "2025-09-01", "Alemania", "Extranjero", T, 100, 300),   # 200 noches
+        ("Panajachel", "2025-09-01", "Guatemala", "Nacional", T, 1000, 3000),  # 2000 noches
+        ("Panajachel", "2025-09-01", "Guatemala", "Nacional", E, 5000, 5000),  # excursionistas: sin noches
+    ])
+    boletin = pd.DataFrame({"periodo": pd.to_datetime(["2025-09-01"]), "huespedes_residentes": [50.0],
+                            "noches_residentes": [100.0], "huespedes_no_residentes": [40.0], "noches_no_residentes": [80.0]})
     ocup = pd.Series([0.4], index=pd.to_datetime(["2025-09-01"]))
-    c = of.cruce_ventana(m, anual, ocup, (pd.Timestamp("2025-09-01"), pd.Timestamp("2025-12-01")))
-    assert c.loc["2025-09-01", "tasa_implicita"] == pytest.approx(300 / (1000 * 30))
+    c = of.cruce_ventana(m, boletin, ocup, (pd.Timestamp("2025-09-01"), pd.Timestamp("2025-12-01"))).set_index("origen")
+    assert c.loc["Extranjero", "noches_telefonia"] == 200
+    assert c.loc["Extranjero", "captacion_formal"] == pytest.approx(80 / 200)
+    assert c.loc["Nacional", "captacion_formal"] == pytest.approx(100 / 2000)
 
 
 def test_capacidad_anual_excluye_corte_parcial():
@@ -120,12 +127,26 @@ def test_regla_del_cuadrante():
     from src import territorio as te
 
     p = pd.DataFrame({
-        "visitantes_mes": [10000, 2000, 1500, 1800],
-        "estadia_media": [2.5, 5.0, 1.5, 1.4],
-        "pct_extranjeros": [0.4, 0.8, 0.2, 0.7],
-    }, index=["hub", "larga", "corta", "corta_ext"])
+        "visitantes_mes": [10000, 9000, 2000, 1500, 1800],
+        "estadia_media": [2.5, 6.0, 5.5, 1.5, 6.5],
+        "iee": [0.9, 1.3, 1.6, 0.4, 0.8],
+    }, index=["hub", "larga_con_volumen", "larga", "corta", "larga_sin_extranjeros"])
     clases = te.clasificar_regla(p)
-    assert clases.tolist() == ["Hub comercial", "Larga estancia", "Visita corta", "Visita corta"]
+    # P75 de la estadia = 6.0: la permanencia tiene prioridad sobre el volumen; sin IEE >= 1 no es larga estancia
+    assert clases.tolist() == ["Hub comercial", "Larga estancia", "Visita corta", "Visita corta", "Visita corta"]
+
+
+def test_iee_no_depende_del_factor_de_expansion():
+    m = _mensual([
+        ("Panajachel", "2025-09-01", "Guatemala", "Nacional", T, 900, 2700),
+        ("Panajachel", "2025-09-01", "Alemania", "Extranjero", T, 100, 300),
+        ("San Marcos La Laguna", "2025-09-01", "Guatemala", "Nacional", T, 100, 300),
+        ("San Marcos La Laguna", "2025-09-01", "Alemania", "Extranjero", T, 100, 300),
+    ])
+    iee = ind.especializacion_extranjera(m)
+    expandido = m.assign(visitantes=m["visitantes"].where(m["origen"] == "Extranjero", m["visitantes"] * 7))
+    pd.testing.assert_series_equal(iee, ind.especializacion_extranjera(expandido))
+    assert iee["San Marcos La Laguna"] > 1 > iee["Panajachel"]
 
 
 def test_estabilidad_kmedias_con_grupos_claros():
@@ -134,7 +155,7 @@ def test_estabilidad_kmedias_con_grupos_claros():
     p = pd.DataFrame({
         "visitantes_mes": [10000, 9500, 9000, 1000, 1100, 1050, 1200, 900, 950],
         "estadia_media": [2.0, 2.1, 2.2, 5.0, 5.2, 5.1, 1.2, 1.3, 1.25],
-        "pct_extranjeros": [0.4, 0.4, 0.42, 0.8, 0.8, 0.82, 0.1, 0.1, 0.12],
+        "iee": [0.9, 0.9, 0.95, 1.8, 1.8, 1.85, 0.3, 0.3, 0.35],
         "presion_finde": [1.3, 1.3, 1.31, 1.1, 1.1, 1.12, 1.8, 1.8, 1.82],
     }, index=list("abcdefghi"))
     p["log_volumen"] = np.log10(p["visitantes_mes"])

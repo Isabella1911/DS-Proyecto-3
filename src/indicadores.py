@@ -7,6 +7,9 @@ Reglas de la guia que se respetan aqui:
 - Los municipios no se suman para dar un total del lago sin advertirlo (duplican visitantes):
   toda cifra de varios municipios se rotula como "suma de municipios".
 - Un mes sin dato es NaN ('Sin dato'), nunca cero.
+- Nunca se calcula la participacion de extranjeros como extranjeros / total: los nacionales traen
+  factor de expansion y los extranjeros no. Para comparar municipios se usa el indice de
+  especializacion extranjera (cociente de localizacion), que no depende de esa escala.
 """
 
 from __future__ import annotations
@@ -56,14 +59,16 @@ def kpis_demanda(m: pd.DataFrame) -> dict:
     mensual = m.groupby("periodo")[["visitantes", "dias_persona"]].sum()
     total = m["visitantes"].sum()
     turistas = m.loc[m["segmento"] == SEG_TURISTA, "visitantes"].sum()
-    extranjeros = m.loc[m["origen"] == "Extranjero", "visitantes"].sum()
+    por_origen = m.groupby(["origen", "periodo"])["visitantes"].sum().groupby("origen").mean()
     return {
         "meses": len(mensual),
         "visitantes_mes": float(mensual["visitantes"].mean()) if len(mensual) else float("nan"),
         "dias_persona_mes": float(mensual["dias_persona"].mean()) if len(mensual) else float("nan"),
         "estadia_media": estadia_media(m),
         "pct_turistas": float(turistas / total) if total else float("nan"),
-        "pct_extranjeros": float(extranjeros / total) if total else float("nan"),
+        # Promedios mensuales por origen, siempre por separado (nunca extranjeros / total)
+        "extranjeros_mes": float(por_origen.get("Extranjero", float("nan"))),
+        "nacionales_mes": float(por_origen.get("Nacional", float("nan"))),
         "serie_visitantes": mensual["visitantes"].tolist(),
         "serie_estadia": [estadia_media(g) for _, g in m.groupby("periodo")],
     }
@@ -87,8 +92,23 @@ def top_paises(m: pd.DataFrame, n: int = 10) -> pd.DataFrame:
     return top
 
 
+def especializacion_extranjera(m: pd.DataFrame) -> pd.Series:
+    """Indice de especializacion extranjera (IEE) de cada municipio, lago = 1.
+
+    IEE_i = (E_i / Σ_j E_j) / (N_i / Σ_j N_j): la cuota del municipio dentro de los extranjeros del
+    lago dividida entre su cuota dentro de los nacionales. Cada cuota se calcula dentro de un solo
+    origen, de modo que un factor de expansion constante sobre los nacionales se cancela. IEE > 1:
+    el pueblo atrae proporcionalmente mas extranjeros que el lago en conjunto.
+    """
+    t = m.pivot_table(index="municipio", columns="origen", values="visitantes", aggfunc="sum")
+    t = t.reindex(columns=ORIGENES)
+    cuota = t / t.sum()
+    return (cuota["Extranjero"] / cuota["Nacional"]).replace([np.inf, -np.inf], np.nan).rename("iee")
+
+
 def por_municipio(m: pd.DataFrame) -> pd.DataFrame:
-    """Perfil de cada municipio: volumen mensual, estadia, % extranjeros y % turistas."""
+    """Perfil de cada municipio: volumen mensual, estadia, extranjeros por mes, IEE y % turistas."""
+    iee = especializacion_extranjera(m)
     filas = []
     for mun in MUNICIPIOS:
         g = m[m["municipio"] == mun]
@@ -96,8 +116,8 @@ def por_municipio(m: pd.DataFrame) -> pd.DataFrame:
             continue
         k = kpis_demanda(g)
         filas.append({"municipio": mun, "visitantes_mes": k["visitantes_mes"], "dias_persona_mes": k["dias_persona_mes"],
-                      "estadia_media": k["estadia_media"], "pct_extranjeros": k["pct_extranjeros"],
-                      "pct_turistas": k["pct_turistas"]})
+                      "estadia_media": k["estadia_media"], "extranjeros_mes": k["extranjeros_mes"],
+                      "iee": float(iee.get(mun, float("nan"))), "pct_turistas": k["pct_turistas"]})
     return pd.DataFrame(filas).set_index("municipio")
 
 
@@ -145,29 +165,3 @@ def patron_semanal(diaria: pd.DataFrame, solo_regulares: bool = True) -> pd.Data
 def presion_fin_de_semana(patron: pd.DataFrame) -> float:
     """Promedio sabado-domingo / promedio lunes-viernes."""
     return float(patron.loc[["Sábado", "Domingo"], "promedio"].mean() / patron.loc[DIAS_SEMANA[:5], "promedio"].mean())
-
-
-# ---------------------------------------------------------------------------------------------
-# Modulo 4: cuadrante de los municipios
-
-
-def clasificar_municipios(perfil: pd.DataFrame) -> pd.DataFrame:
-    """Ubica cada municipio en el cuadrante volumen x estadia (cortes en la mediana).
-
-    - Hub comercial: volumen alto (puerta de entrada).
-    - Larga estancia: volumen bajo/medio y estadia alta, mayoria extranjera.
-    - Visita corta: estadia baja (excursiones de un dia desde otro municipio).
-    Es una primera regla de trabajo; el modulo 4 la afinara con mas variables.
-    """
-    p = perfil.copy()
-    corte_vol = p["visitantes_mes"].median()
-    corte_est = p["estadia_media"].median()
-    p["clase"] = np.select(
-        [p["visitantes_mes"] >= p["visitantes_mes"].max() * 0.6,
-         (p["estadia_media"] >= corte_est) & (p["pct_extranjeros"] >= 0.5),
-         p["estadia_media"] < corte_est],
-        ["Hub comercial", "Larga estancia", "Visita corta"],
-        default="Intermedio",
-    )
-    p.attrs.update(corte_volumen=float(corte_vol), corte_estadia=float(corte_est))
-    return p
