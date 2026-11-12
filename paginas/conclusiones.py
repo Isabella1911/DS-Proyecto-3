@@ -9,6 +9,9 @@ from src import hallazgos
 from src.datos import CONFIG, corto, origenes, tabla, tabla_opcional
 from src.estilo import formato_numero
 from src.graficas import MES_ES
+
+MESES_LARGOS = ["enero", "febrero", "marzo", "abril", "mayo", "junio", "julio", "agosto", "septiembre", "octubre",
+                "noviembre", "diciembre"]
 from src.ui import aviso_sinteticos, encabezado_pagina, indicadores, nota
 
 
@@ -31,126 +34,131 @@ def _lista(municipios: list[str]) -> str:
 
 
 encabezado_pagina(
-    "Cierre",
-    "Conclusiones del observatorio",
-    "La historia de los cuatro módulos en una página: cuántos visitantes llegan y de dónde, cuándo llegan, dónde "
-    "duermen y qué papel juega cada pueblo. Cada cifra se recalcula con los datos cargados.",
-    "Todo el lago · todos los orígenes",
+    "Conclusiones",
+    "Conclusiones y recomendaciones",
+    "Síntesis de los resultados de los cuatro módulos y recomendaciones para la gestión del destino. Las cifras se "
+    "recalculan con los datos cargados.",
+    "Ámbito: lago completo, todos los orígenes<br>Telefonía: septiembre de 2025 a agosto de 2026",
 )
 aviso_sinteticos(origenes())
 
 hub, larga, corta = (te["miembros"].get(c, []) for c in ["Hub comercial", "Larga estancia", "Visita corta"])
 indicadores([
-    {"etiqueta": "1 · Visitantes por mes (suma de municipios)", "valor": formato_numero(dm["visitantes_mes"]),
-     "contexto": f"estadía {dm['estadia_media']:.2f} días · {formato_numero(dm['extranjeros_mes'])} extranjeros/mes"},
-    {"etiqueta": "2 · Festividad de mayor impacto", "valor": tp["evento_top"] or "Sin dato",
-     "contexto": f"Lift {tp['lift_top']:+.0%} · fin de semana ×{tp['presion_finde']:.2f}"},
-    {"etiqueta": f"3 · Noches extranjeras en hotel formal ({ventana})",
+    {"etiqueta": "Visitantes por mes, suma de municipios", "valor": formato_numero(dm["visitantes_mes"]),
+     "contexto": f"Estadía media de {dm['estadia_media']:.2f} días"},
+    {"etiqueta": "Festividad de mayor impacto", "valor": tp["evento_top"] or "Sin dato",
+     "contexto": f"Lift de {tp['lift_top']:+.0%}; fin de semana {tp['presion_finde']:.2f} veces un día hábil"},
+    {"etiqueta": f"Noches extranjeras en hotelería formal, {ventana}",
      "valor": f"{ofe['captacion_ext']:.0%}" if hay_cruce else "Sin dato",
-     "contexto": f"nacionales: {ofe['captacion_nac']:.1%} · ocupación {ofe['ocupacion_oficial']:.0%}" if hay_cruce else ""},
-    {"etiqueta": "4 · Hub · larga estancia · visita corta", "valor": f"{len(hub)} · {len(larga)} · {len(corta)}",
-     "contexto": f"regla y k-medias coinciden en {te['coinciden']} de {te['n']}"},
+     "contexto": f"Nacionales: {ofe['captacion_nac']:.1%}" if hay_cruce else ""},
+    {"etiqueta": "Hubs, larga estancia y visita corta", "valor": f"{len(hub)}, {len(larga)} y {len(corta)}",
+     "contexto": f"Municipios por clase; métodos coinciden en {te['coinciden']} de {te['n']}"},
 ])
 
-# --- La historia, modulo por modulo ---------------------------------------------------------------
 c1, c2 = st.columns(2, gap="small")
 with c1, st.container(key="tile-concl-m1"):
-    st.html('<div class="ot-tt">1 · ¿Cuántos llegan y de dónde?</div><div class="ot-ts">Demanda y mercados emisores</div>')
-    nota("observado", f"El lago recibe en promedio **{formato_numero(dm['visitantes_mes'])} visitantes por mes** (suma de "
-         f"municipios, una cota superior). El {dm['pct_turistas']:.0%} pernocta y se queda {dm['estadia_media']:.1f} días. "
-         f"**{dm['mercado_lider']}** es el primer mercado extranjero ({dm['pct_mercado_lider']:.0%}) y "
-         f"**{dm['mercado_estadia']}** el de estadía más larga ({dm['estadia_mercado_max']:.1f} días).")
-    st.page_link("paginas/m1_demanda.py", label="Ver módulo 1", icon=":material/groups:")
+    st.html('<div class="ot-tt">1. Demanda y mercados emisores</div><div class="ot-ts">Módulo 1</div>')
+    nota("observado", f"El lago recibe en promedio {formato_numero(dm['visitantes_mes'])} visitantes por mes (suma de "
+         f"municipios, cota superior). El {dm['pct_turistas']:.0%} pernocta, con una estadía media de "
+         f"{dm['estadia_media']:.1f} días. {dm['mercado_lider']} es el primer mercado extranjero "
+         f"({dm['pct_mercado_lider']:.0%}) y {dm['mercado_estadia']} el de estadía más larga ({dm['estadia_mercado_max']:.1f} días).")
+    st.page_link("paginas/m1_demanda.py", label="Ir al módulo 1", icon=":material/groups:")
 with c2, st.container(key="tile-concl-m2"):
-    st.html('<div class="ot-tt">2 · ¿Cuándo llegan?</div><div class="ot-ts">Dinámica temporal y pronóstico</div>')
+    st.html('<div class="ot-tt">2. Dinámica temporal y estimación</div><div class="ot-ts">Módulo 2</div>')
     est = tp["estimados"]
-    nota("observado", f"**{tp['evento_top']}** eleva la afluencia {tp['lift_top']:+.0%} frente a un día regular y los fines "
-         f"de semana reciben {tp['presion_finde']:.2f} veces los visitantes de un día hábil.")
-    nota("estimacion", "Sin telefonía en " + " y ".join(f"{MES_ES[t.month - 1]} {t.year}" for t in est.index)
-         + f", el método {tp['metodo']} estima " + " y ".join(formato_numero(v) for v in est.values)
-         + f" visitantes (error de validación {tp['mape'][tp['metodo']]:.1f} %).")
-    st.page_link("paginas/m2_temporal.py", label="Ver módulo 2", icon=":material/calendar_month:")
+    nota("observado", f"{tp['evento_top']} eleva la afluencia {tp['lift_top']:+.0%} frente a un día regular; los fines de "
+         f"semana reciben {tp['presion_finde']:.2f} veces la presencia de un día hábil.")
+    nota("estimacion", "Para " + " y ".join(f"{MESES_LARGOS[t.month - 1]} de {t.year}" for t in est.index)
+         + f", meses sin cobertura de telefonía, el método {tp['metodo']} estima "
+         + " y ".join(formato_numero(v) for v in est.values)
+         + f" visitantes, con un error de validación de {tp['mape'][tp['metodo']]:.1f}%.")
+    st.page_link("paginas/m2_temporal.py", label="Ir al módulo 2", icon=":material/calendar_month:")
 
 c3, c4 = st.columns(2, gap="small")
 with c3, st.container(key="tile-concl-m3"):
-    st.html('<div class="ot-tt">3 · ¿Dónde duermen?</div><div class="ot-ts">Oferta hotelera</div>')
+    st.html('<div class="ot-tt">3. Oferta de alojamiento</div><div class="ot-ts">Módulo 3</div>')
     if ofe:
-        nota("observado", f"Sololá tenía **{formato_numero(ofe['plazas1'])} plazas cama** en el corte de {ofe['anio1']} "
-             f"(inventario, no tendencia) y una ocupación promedio de {ofe['ocupacion_prom']:.0%} en {ofe['anio_ocupacion']}, "
-             f"con pico en {MES_ES[ofe['mes_pico'] - 1]} ({ofe['ocupacion_pico']:.0%}); el mes más flojo en promedio es "
-             f"{MES_ES[ofe['mes_valle_tipico'] - 1]} ({ofe['ocupacion_valle_tipico']:.0%}).")
+        nota("observado", f"Sololá contaba con {formato_numero(ofe['plazas1'])} plazas cama en el corte de {ofe['anio1']}. "
+             f"La ocupación promedio de {ofe['anio_ocupacion']} fue de {ofe['ocupacion_prom']:.0%}, con un máximo en "
+             f"{MESES_LARGOS[ofe['mes_pico'] - 1]} ({ofe['ocupacion_pico']:.0%}); el mes de menor ocupación en promedio "
+             f"es {MESES_LARGOS[ofe['mes_valle_tipico'] - 1]} ({ofe['ocupacion_valle_tipico']:.0%}).")
         if hay_cruce:
-            nota("observado", f"En {ventana}, los hoteles formales registran el **{ofe['captacion_ext']:.0%}** de las noches "
-                 f"que la telefonía mide para los turistas extranjeros, pero solo el **{ofe['captacion_nac']:.1%}** de las de "
-                 f"los nacionales (las series se mueven juntas: r = {ofe['correlacion_ext']:.2f} y {ofe['correlacion_nac']:.2f}).")
+            nota("observado", f"Entre septiembre y diciembre de 2025, la hotelería formal registró el {ofe['captacion_ext']:.0%} "
+                 f"de las noches que la telefonía mide para los turistas extranjeros y el {ofe['captacion_nac']:.1%} de las "
+                 f"de los nacionales. Ambas fuentes evolucionan en la misma dirección (r = {ofe['correlacion_ext']:.2f} y "
+                 f"{ofe['correlacion_nac']:.2f}).")
         if fr:
-            nota("observado", f"Entre quienes entran al país rumbo al lago (encuesta en fronteras, ola {fr['ola']}), el "
-                 f"{fr['pct_airbnb']:.0%} declara Airbnb o similar y el {fr['pct_puesto_top']:.0%} entra por "
-                 f"{fr['puesto_top']} (porcentajes muestrales).")
-    st.page_link("paginas/m3_oferta.py", label="Ver módulo 3", icon=":material/hotel:")
+            nota("observado", f"Entre los viajeros que ingresan al país con destino al lago (ola {fr['ola']}), el "
+                 f"{fr['pct_airbnb']:.0%} declara alojarse en Airbnb o similar y el {fr['pct_puesto_top']:.0%} ingresa por "
+                 f"{fr['puesto_top']}. Porcentajes muestrales.")
+    st.page_link("paginas/m3_oferta.py", label="Ir al módulo 3", icon=":material/hotel:")
 with c4, st.container(key="tile-concl-m4"):
-    st.html('<div class="ot-tt">4 · ¿Qué papel juega cada pueblo?</div><div class="ot-ts">Red de municipios (reto del grupo)</div>')
-    nota("observado", f"**Hub comercial:** {_lista(hub)}. **Larga estancia:** {_lista(larga)}. "
-         f"**Visita corta:** {_lista(corta)}.")
+    st.html('<div class="ot-tt">4. Red de municipios</div><div class="ot-ts">Módulo 4, análisis especializado</div>')
+    nota("observado", f"Hubs: {_lista(hub)}. Larga estancia: {_lista(larga)}. Visita corta: {_lista(corta)}.")
     pc = te["por_clase"]
     if {"Hub comercial", "Larga estancia"} <= set(pc.index):
-        nota("observado", f"Un turista de larga estancia se queda {pc.loc['Larga estancia', 'estadia_media']:.1f} días frente a "
-             f"{pc.loc['Hub comercial', 'estadia_media']:.1f} en el hub. Regla y k-medias coinciden en {te['coinciden']} "
-             f"de {te['n']} municipios y k-medias conserva la clase del {te['estabilidad']:.0%} al quitar un pueblo.")
-    st.page_link("paginas/m4_municipios.py", label="Ver módulo 4", icon=":material/hub:")
+        nota("observado", f"Un turista de larga estancia permanece {pc.loc['Larga estancia', 'estadia_media']:.1f} días, "
+             f"frente a {pc.loc['Hub comercial', 'estadia_media']:.1f} en los hubs. La regla y k-medias coinciden en "
+             f"{te['coinciden']} de {te['n']} municipios; k-medias conserva la clase del {te['estabilidad']:.0%} al excluir "
+             "un municipio.")
+    st.page_link("paginas/m4_municipios.py", label="Ir al módulo 4", icon=":material/hub:")
 
-# --- Sintesis y recomendaciones -------------------------------------------------------------------
 with st.container(key="tile-concl-historia"):
-    st.html('<div class="ot-tt">La historia en una frase</div>')
-    partes = [f"El Lago de Atitlán funciona como una red: {_lista(hub)} " + ("reciben" if len(hub) > 1 else "recibe") + " el volumen"]
+    st.html('<div class="ot-tt">Síntesis</div>')
+    partes = [f"El Lago de Atitlán funciona como una red: {_lista(hub)} " + ("concentran" if len(hub) > 1 else "concentra")
+              + " el flujo de visitantes"]
     if larga:
-        partes.append(f"{_lista(larga)} retienen las estancias largas")
+        partes.append(f"{_lista(larga)} retienen las estadías más largas")
     if corta:
-        partes.append(f"{len(corta)} pueblos de visita corta absorben las excursiones")
+        partes.append(f"otros {len(corta)} municipios reciben sobre todo visitas cortas")
     frase = ", ".join(partes[:-1]) + (" y " if len(partes) > 1 else "") + partes[-1] + "."
     frase += (f" La demanda se concentra en {tp['evento_top']} y en los fines de semana, cuando la presión sobre "
-              "transporte y servicios es mayor que la que muestran los promedios mensuales.")
+              "transporte y servicios supera la que reflejan los promedios mensuales.")
     nota("interpretacion", frase)
 
 # --- Hallazgos y recomendaciones vinculadas ------------------------------------------------------------
 pc = te["por_clase"]
 hub_finde = pc.loc["Hub comercial", "presion_finde"] if "Hub comercial" in pc.index else float("nan")
 recs = [
-    ("Alta", "Gestionar los picos en las puertas de entrada",
-     f"Año Nuevo eleva la afluencia {tp['lift_top']:+.0%} sobre un día regular y el fin de semana {tp['presion_finde']:.2f}×; "
-     f"en los hubs ({_lista(hub)}) llega a {hub_finde:.2f}×.",
-     "Reforzar transporte lacustre, seguridad y servicios municipales sábados, domingos y fin de año en los hubs; "
-     "planificar con el patrón semanal de cada pueblo (módulo 4) y no con promedios mensuales."),
+    ("Alta", "Gestión de picos en las puertas de entrada",
+     f"{tp['evento_top']} eleva la afluencia {tp['lift_top']:+.0%} sobre un día regular. El fin de semana recibe "
+     f"{tp['presion_finde']:.2f} veces la presencia de un día hábil, y {hub_finde:.2f} veces en los hubs ({_lista(hub)}).",
+     "Reforzar transporte lacustre, seguridad y servicios municipales en sábados, domingos y fin de año en los hubs, "
+     "con base en el patrón semanal de cada municipio y no en promedios mensuales."),
 ]
 if hay_cruce:
-    recs.append(("Alta", "Medir el alojamiento que hoy no se ve",
-                 f"La hotelería formal capta {ofe['captacion_ext']:.0%} de las noches extranjeras y {ofe['captacion_nac']:.1%} de "
-                 "las nacionales" + (f"; {fr['pct_airbnb']:.0%} de los encuestados rumbo al lago declara Airbnb." if fr else "."),
-                 "Crear con las municipalidades un registro de casas de huéspedes y plataformas digitales; sin él, la ocupación "
-                 "oficial describe al turismo extranjero pero no a la mayoría de las noches del lago."))
+    recs.append(("Alta", "Registro del alojamiento no formal",
+                 f"La hotelería formal registra el {ofe['captacion_ext']:.0%} de las noches de turistas extranjeros y el "
+                 f"{ofe['captacion_nac']:.1%} de las de nacionales."
+                 + (f" El {fr['pct_airbnb']:.0%} de los encuestados con destino al lago declara alojarse en Airbnb." if fr else ""),
+                 "Establecer con las municipalidades un registro de casas de huéspedes y plataformas digitales. Mientras no "
+                 "exista, la ocupación oficial debe leerse como indicador del turismo extranjero."))
 if larga:
-    recs.append(("Media", "Promover estancias largas donde ya ocurren",
-                 f"{_lista(larga)} retienen {pc.loc['Larga estancia', 'estadia_media']:.1f} días por turista frente a "
-                 f"{pc.loc['Hub comercial', 'estadia_media']:.1f} en los hubs y atraen más extranjeros que el lago (IEE "
-                 f"{pc.loc['Larga estancia', 'iee']:.2f})." + (f" El {fr['pct_puesto_top']:.0%} de los encuestados entra por "
-                 f"{fr['puesto_top']}." if fr else ""),
-                 "Orientar la promoción internacional de estadías largas a esos pueblos y a mercados de mayor estadía, con "
-                 "información turística en la ruta terrestre de ingreso" + (f" ({fr['puesto_top']})." if fr else ".")))
+    recs.append(("Media", "Promoción de estadías largas donde ya ocurren",
+                 f"{_lista(larga)} registran {pc.loc['Larga estancia', 'estadia_media']:.1f} días por turista frente a "
+                 f"{pc.loc['Hub comercial', 'estadia_media']:.1f} en los hubs, con especialización extranjera de "
+                 f"{pc.loc['Larga estancia', 'iee']:.2f}."
+                 + (f" El {fr['pct_puesto_top']:.0%} de los encuestados ingresa por {fr['puesto_top']}." if fr else ""),
+                 "Dirigir la promoción internacional de estadías largas a esos municipios y a los mercados de mayor estadía, "
+                 "con información turística en la ruta terrestre de ingreso"
+                 + (f" ({fr['puesto_top']})." if fr else ".")))
 if ofe:
-    recs.append(("Media", "Atacar la temporada baja",
-                 f"La ocupación cae a {ofe['ocupacion_valle_tipico']:.0%} en {MES_ES[ofe['mes_valle_tipico'] - 1]} (promedio "
-                 "2023–2025) frente a picos sobre 90 %.",
-                 f"Concentrar campañas para el mercado nacional y paquetes de fin de semana en {MES_ES[ofe['mes_valle_tipico'] - 1]}, "
-                 "cuando sobra capacidad formal."))
-recs.append(("Base", "Cerrar el hueco de telefonía",
-             f"Enero y febrero solo se estiman (MAPE {tp['mape'][tp['metodo']]:.1f} %) y no hay comparación 2025 vs 2026.",
-             "Acordar con el proveedor cobertura continua de los 12 meses y actualizar este tablero cada mes con el mismo ETL."))
+    recs.append(("Media", "Temporada baja",
+                 f"La ocupación hotelera desciende a {ofe['ocupacion_valle_tipico']:.0%} en "
+                 f"{MESES_LARGOS[ofe['mes_valle_tipico'] - 1]} (promedio 2023 a 2025), frente a máximos superiores al 90%.",
+                 f"Concentrar campañas para el mercado nacional y paquetes de fin de semana en "
+                 f"{MESES_LARGOS[ofe['mes_valle_tipico'] - 1]}, cuando existe capacidad formal disponible."))
+recs.append(("Base", "Cobertura continua de telefonía",
+             f"Enero y febrero solo pueden estimarse (MAPE de {tp['mape'][tp['metodo']]:.1f}%) y no existe comparación "
+             "interanual entre 2025 y 2026.",
+             "Acordar con el proveedor la cobertura de los doce meses y la entrega del total del destino; actualizar el "
+             "tablero cada mes con el mismo proceso de datos."))
 
 with st.container(key="tile-concl-recs"):
-    st.html('<div class="ot-tt">Recomendaciones para el INGUAT</div><div class="ot-ts">Cada una con la evidencia que la sostiene, '
-            'la decisión que apoya y su prioridad</div>')
+    st.html('<div class="ot-tt">Recomendaciones para el INGUAT</div><div class="ot-ts">Evidencia, decisión que apoya y '
+            'prioridad de cada recomendación</div>')
     filas = "".join(
-        f"<tr><td style='white-space:nowrap'><b>{i}. {titulo}</b><br><span class='ot-tag'>{prioridad}</span></td>"
+        f"<tr><td><b>{i}. {titulo}</b><br><span class='ot-tag'>Prioridad {prioridad.lower()}</span></td>"
         f"<td>{evidencia}</td><td>{accion}</td></tr>"
         for i, (prioridad, titulo, evidencia, accion) in enumerate(recs[:5], start=1)
     )
@@ -158,13 +166,14 @@ with st.container(key="tile-concl-recs"):
             f"</thead><tbody>{filas}</tbody></table>")
 
 with st.container(key="tile-concl-datos"):
-    st.html('<div class="ot-tt">Datos que convendría incorporar</div><div class="ot-ts">Para responder lo que hoy queda abierto</div>')
+    st.html('<div class="ot-tt">Información adicional requerida</div><div class="ot-ts">Para resolver las preguntas que quedan abiertas</div>')
     st.markdown(
-        "- **Telefonía continua** (12 meses) y el **total del destino** entregado por el proveedor: hoy el total del lago "
-        "solo puede acotarse con la suma de municipios.\n"
-        "- **Pares origen-destino entre polígonos** para medir el flujo entre pueblos y confirmar si los extranjeros de "
-        "San Marcos duermen en otro pueblo.\n"
-        "- **Oferta y ocupación por municipio**, no solo por departamento, para cruzar capacidad y demanda pueblo por pueblo.\n"
-        "- **Registro de plataformas digitales** y casas de huéspedes.\n"
-        "- **Encuesta en sitio con factor de expansión** (gasto, motivo, alojamiento) y **conteos de lanchas** por muelle."
+        "- Telefonía continua de doce meses y total del destino entregado por el proveedor; hoy el total del lago solo "
+        "puede acotarse con la suma de municipios.\n"
+        "- Pares origen-destino entre polígonos, para medir el flujo entre municipios y verificar dónde pernoctan los "
+        "visitantes extranjeros de San Marcos La Laguna.\n"
+        "- Oferta y ocupación hotelera por municipio, para contrastar capacidad y demanda en cada localidad.\n"
+        "- Registro de plataformas digitales y casas de huéspedes.\n"
+        "- Encuesta en sitio con factor de expansión (gasto, motivo de viaje, alojamiento) y conteos de pasajeros de "
+        "transporte lacustre por muelle."
     )

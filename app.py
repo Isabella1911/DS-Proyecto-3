@@ -6,11 +6,11 @@ Ejecutar:
 
 import streamlit as st
 
-from src.datos import preparar
-from src.ui import FUENTE_DATOS, estilo_global
+from src.datos import calidad, preparar
+from src.ui import FUENTE_DATOS, estilo_global, pie_institucional
 
 st.set_page_config(
-    page_title="Observatorio Turístico · Lago de Atitlán",
+    page_title="Observatorio de Inteligencia Turística | Lago de Atitlán",
     page_icon="static/icono.svg",
     layout="wide",
 )
@@ -24,11 +24,11 @@ paginas = st.navigation(
             st.Page("paginas/inicio.py", title="Inicio", icon=":material/dashboard:", default=True),
         ],
         "Módulos": [
-            st.Page("paginas/m1_demanda.py", title="1 · Demanda y mercados", icon=":material/groups:"),
-            st.Page("paginas/m2_temporal.py", title="2 · Dinámica temporal y pronóstico", icon=":material/calendar_month:"),
-            st.Page("paginas/m3_oferta.py", title="3 · Oferta hotelera", icon=":material/hotel:"),
-            st.Page("paginas/m4_municipios.py", title="4 · Red de municipios", icon=":material/hub:"),
-            st.Page("paginas/conclusiones.py", title="Conclusiones", icon=":material/flag:"),
+            st.Page("paginas/m1_demanda.py", title="1. Demanda y mercados", icon=":material/groups:"),
+            st.Page("paginas/m2_temporal.py", title="2. Dinámica temporal", icon=":material/calendar_month:"),
+            st.Page("paginas/m3_oferta.py", title="3. Oferta hotelera", icon=":material/hotel:"),
+            st.Page("paginas/m4_municipios.py", title="4. Red de municipios", icon=":material/hub:"),
+            st.Page("paginas/conclusiones.py", title="Conclusiones y recomendaciones", icon=":material/flag:"),
         ],
         "Metodología": [
             st.Page("paginas/calidad.py", title="Calidad de los datos", icon=":material/fact_check:"),
@@ -38,3 +38,6 @@ paginas = st.navigation(
 )
 st.sidebar.caption(FUENTE_DATOS)
 paginas.run()
+_cal = calidad()
+pie_institucional("31 de agosto de 2026 (telefonía); 31 de diciembre de 2025 (hotelería)",
+                  _cal["generado"].replace("T", " ")[:16])

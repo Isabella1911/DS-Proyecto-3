@@ -94,6 +94,7 @@ src/
 scripts/generar_sinteticos.py   Datos sintéticos con la estructura exacta de las 5 bases
 scripts/revisar_datos.py        Revisión de las bases reales antes de presentar
 scripts/generar_memoria.py      Memoria técnica en DOCX con las cifras vigentes
+scripts/maquetar_memoria.py     Maquetación de la memoria: portada, estilos, tablas, encabezado y pie
 config/config.yaml         Rutas, patrones de archivo, meses a estimar, ventana coincidente
 tests/                     Reglas metodológicas y pruebas de humo de todas las páginas
 data/                      (no versionada) raw/, sinteticos/, procesados/

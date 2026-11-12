@@ -3,3 +3,4 @@
 -r requirements.txt
 matplotlib==3.11.2
 kaleido==1.5.0
+python-docx==1.2.0

@@ -18,13 +18,35 @@ import streamlit as st
 
 # Etiqueta, color de texto y fondo (tags de Carbon: blue 20, gray 20, purple 20)
 TIPO_INFO = {
-    "observado": ("Observado", "#0043ce", "#d0e2ff"),
+    "observado": ("Dato observado", "#0043ce", "#d0e2ff"),
     "interpretacion": ("Interpretación", "#393939", "#e0e0e0"),
     "estimacion": ("Estimación", "#6929c4", "#e8daff"),
     "base": ("Versión base", "#8e6a00", "#fcf4d6"),
 }
 
-FUENTE_DATOS = "Telefonía (movilidad), migración, ocupación y oferta hotelera. Uso académico; no son cifras oficiales."
+FUENTE_DATOS = ("Fuentes: INGUAT (movilidad por telefonía móvil, flujo migratorio, ocupación y oferta hotelera, "
+                "boletines de ocupación y encuesta en puestos fronterizos). Uso académico; no constituyen cifras oficiales.")
+
+# Nota de fuente de cada mosaico, como en las publicaciones de las agencias estadisticas. Se busca por la
+# clave del mosaico; todas cierran con "elaboración propia".
+_TEL_M = "INGUAT, movilidad por telefonía móvil, base mensual (hoja Atitlan)"
+_TEL_D = "INGUAT, movilidad por telefonía móvil, base diaria (hoja Atitlan)"
+_MIG = "INGUAT, base de flujo migratorio 2009–2026"
+_OCUP = "INGUAT, índice de ocupación hotelera mensual 2023–2025"
+_OFERTA = "INGUAT, oferta hotelera 2022–2026 (cortes anuales)"
+_BOL = "INGUAT, boletines de ocupación hotelera 2023, 2024 y 2025"
+_FRON = "INGUAT, encuesta de perfil del visitante en puestos fronterizos (BD complementaria)"
+FUENTES_MOSAICO = {
+    "m1-mun": [_TEL_M], "m1-seg": [_TEL_M], "m1-top": [_TEL_M], "m1-estadia": [_TEL_M],
+    "m2-diaria": [_TEL_D], "m2-lift": [_TEL_D], "m2-semana": [_TEL_D], "m2-estimacion": [_TEL_M, _MIG],
+    "m2-validacion": [_TEL_M, _MIG], "m2-perfil": [_MIG], "m2-consistencia": [_TEL_M, _TEL_D],
+    "m3-cap-anual": [_OFERTA], "m3-cap-tipo": [_OFERTA], "m3-ocup": [_OCUP], "m3-heat": [_OCUP],
+    "m3-ventana": [_TEL_M, _BOL, _OCUP], "m3-hosp": [_FRON], "m3-puesto": [_FRON], "m3-sub": [_TEL_M],
+    "m4-cuadrante": [_TEL_M, _TEL_D], "m4-mapa": [_TEL_M, "mapa base © OpenStreetMap, © CARTO"],
+    "m4-matriz": [_TEL_M, _TEL_D], "m4-huella": [_TEL_D], "m4-mercados": [_TEL_M], "m4-estac": [_TEL_M],
+    "m4-serie": [_TEL_M], "m4-semana": [_TEL_D], "m4-paises": [_TEL_M],
+    "inicio-cobertura": ["INGUAT, todas las fuentes del observatorio"], "cal-cobertura": ["INGUAT, todas las fuentes del observatorio"],
+}
 
 MESES_CORTOS = ["ene", "feb", "mar", "abr", "may", "jun", "jul", "ago", "sep", "oct", "nov", "dic"]
 
@@ -56,15 +78,18 @@ _CSS = """
 /* mosaicos */
 [class*="st-key-tile-"], [class*="st-key-filtros-"] { background: #ffffff; border: 1px solid #e0e0e0; padding: 1rem 1rem .75rem !important; gap: .5rem; }
 [class*="st-key-filtros-"] { padding: .75rem 1rem .25rem !important; }
+.ot-sec { font-size: 1.125rem; font-weight: 600; color: #161616; margin: 1rem 0 .1rem; padding-bottom: .35rem; border-bottom: 1px solid #c6c6c6; }
 .ot-tt { font-size: .9375rem; font-weight: 600; color: #161616; line-height: 1.3; }
 .ot-ts { font-size: .75rem; color: #6f6f6f; margin-top: .15rem; line-height: 1.4; }
-.ot-tags { display: flex; gap: .4rem; justify-content: flex-end; align-items: center; flex-wrap: wrap; padding-top: .1rem; }
+.ot-tags { display: flex; gap: .375rem; justify-content: flex-start; align-items: center; flex-wrap: wrap; margin-top: .45rem; min-height: 1.1rem; }
+.ot-src { font-size: .6875rem; color: #6f6f6f; line-height: 1.45; border-top: 1px solid #e0e0e0; padding-top: .4rem; margin-top: .1rem; }
+.ot-src b { font-weight: 600; color: #525252; }
 .ot-tag { font-size: .6875rem; line-height: 1.1rem; padding: 0 .5rem; border-radius: 1rem; white-space: nowrap; }
 [class*="st-key-tile-"] [data-testid="stPopover"] button { border: none; background: transparent; min-height: 1.75rem; padding: 0 .25rem; color: #525252; }
 [class*="st-key-tile-"] [data-testid="stPopover"] button:hover { background: #e8e8e8; color: #161616; }
 [class*="st-key-tile-"] [data-testid="stPopover"] button div[aria-hidden="true"] { display: none; }
 .ot-clic { color: #0f62fe; background: #ffffff; border: 1px solid #0f62fe; line-height: 1rem; }
-.ot-chip { font-size: .6875rem; line-height: 1.1rem; padding: 0 .5rem; background: #161616; color: #ffffff; white-space: nowrap; max-width: 22rem; overflow: hidden; text-overflow: ellipsis; }
+.ot-chip { font-size: .6875rem; line-height: 1.1rem; padding: 0 .5rem; background: #161616; color: #ffffff; border-radius: 1rem; white-space: normal; }
 
 /* tabla de recomendaciones (conclusiones) */
 .ot-tabla-recs { width: 100%; border-collapse: collapse; font-size: .8125rem; color: #393939; }
@@ -79,9 +104,9 @@ _CSS = """
 }
 
 /* indicadores */
-.ot-kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr)); gap: .75rem; }
+.ot-kpis { display: grid; grid-template-columns: repeat(var(--n, 4), minmax(0, 1fr)); gap: .75rem; }
 .ot-kpi { background: #ffffff; border: 1px solid #e0e0e0; padding: .9rem 1rem .8rem; display: flex; flex-direction: column; gap: .2rem; }
-.ot-kpi .l { font-size: .75rem; color: #525252; }
+.ot-kpi .l { font-size: .75rem; color: #525252; min-height: 2.1em; line-height: 1.4; }
 .ot-kpi .row { display: flex; justify-content: space-between; align-items: flex-end; gap: .75rem; }
 .ot-kpi .v { font-size: 1.875rem; font-weight: 300; color: #161616; line-height: 1.15; font-variant-numeric: tabular-nums; letter-spacing: -.01em; }
 .ot-kpi .d { font-size: .75rem; color: #525252; font-variant-numeric: tabular-nums; }
@@ -108,8 +133,14 @@ _CSS = """
 [data-testid="stCaptionContainer"] { color: #6f6f6f; }
 [data-testid="stSidebar"] [data-testid="stCaptionContainer"] { font-size: .7rem; line-height: 1.45; }
 
+/* pie institucional */
+.ot-pie { margin-top: 2rem; padding-top: .9rem; border-top: 1px solid #c6c6c6; font-size: .75rem; color: #525252; line-height: 1.6; display: grid; grid-template-columns: 2fr 1fr; gap: 1.5rem; }
+.ot-pie b { color: #161616; font-weight: 600; }
+
 /* tableta: menos margen y encabezado en una columna */
 @media (max-width: 1024px) {
+  .ot-kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .ot-pie { grid-template-columns: 1fr; gap: .5rem; }
   /* con la barra lateral plegada el logo flota arriba a la izquierda: se deja espacio y fondo opaco */
   [data-testid="stMainBlockContainer"] { padding: 3.25rem 1.25rem 2.5rem; }
   [data-testid="stHeader"] { background: #f4f4f4; }
@@ -121,14 +152,13 @@ _CSS = """
   .ot-head { flex-direction: column; align-items: flex-start; gap: .5rem; }
   .ot-meta { text-align: left; white-space: normal; }
   .ot-h1 { font-size: 1.4rem; }
-  .ot-kpis { grid-template-columns: repeat(auto-fit, minmax(9.5rem, 1fr)); gap: .5rem; }
+  .ot-kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .5rem; }
   .ot-kpi .v { font-size: 1.5rem; }
   [class*="st-key-tile-"], [class*="st-key-filtros-"] { padding: .75rem .75rem .5rem !important; }
-  [class*="st-key-tile-"] [data-testid="stHorizontalBlock"]:has(.ot-tags) { flex-wrap: wrap; align-items: center; gap: .25rem .5rem; }
-  [class*="st-key-tile-"] [data-testid="stHorizontalBlock"]:has(.ot-tags) > [data-testid="stColumn"]:nth-child(1) { flex: 1 1 100% !important; min-width: 100% !important; }
-  [class*="st-key-tile-"] [data-testid="stHorizontalBlock"]:has(.ot-tags) > [data-testid="stColumn"]:nth-child(2) { flex: 1 1 auto !important; min-width: 0 !important; width: auto !important; }
-  [class*="st-key-tile-"] [data-testid="stHorizontalBlock"]:has(.ot-tags) > [data-testid="stColumn"]:nth-child(3) { flex: 0 0 auto !important; min-width: 0 !important; width: auto !important; }
-  .ot-tags { justify-content: flex-start; }
+  /* encabezado del mosaico: titulo a la izquierda e icono de informacion a la derecha, sin apilarse */
+  [class*="st-key-tile-"] [data-testid="stHorizontalBlock"]:has(.ot-tags) { flex-wrap: nowrap; align-items: flex-start; gap: .5rem; }
+  [class*="st-key-tile-"] [data-testid="stHorizontalBlock"]:has(.ot-tags) > [data-testid="stColumn"]:nth-child(1) { flex: 1 1 0 !important; min-width: 0 !important; width: auto !important; }
+  [class*="st-key-tile-"] [data-testid="stHorizontalBlock"]:has(.ot-tags) > [data-testid="stColumn"]:nth-child(2) { flex: 0 0 auto !important; min-width: 0 !important; width: auto !important; }
   /* en pantallas tactiles la barra de Plotly queda siempre visible y tapa la leyenda */
   .modebar-container { display: none; }
 }
@@ -161,19 +191,24 @@ def _tag(tipo: str) -> str:
 
 @contextmanager
 def mosaico(clave: str, titulo: str, subtitulo: str, tipo: str, ayuda: str, filtro: str | None = None,
-            enlazada: bool = False):
-    """Mosaico de una visualizacion: titulo, subtitulo con unidades y alcance, etiqueta de
-    tipo de dato, chip del filtro cruzado activo y la explicacion en un icono de informacion.
-    Las graficas que filtran a otras (enlazada=True) llevan la misma pista 'Clic para filtrar'."""
+            enlazada: bool = False, fuente: str | None = None):
+    """Mosaico de una visualizacion: titulo, subtitulo con unidades y periodo, etiquetas (tipo de dato,
+    pista de interaccion, filtro activo) en una sola linea, la nota metodologica detras del icono de
+    informacion y, al pie, la fuente. Las graficas que filtran a otras (enlazada=True) llevan la pista
+    'Clic para filtrar'."""
     with st.container(key=f"tile-{clave}"):
-        izq, der, info = st.columns([0.62, 0.32, 0.06], vertical_alignment="top", gap="small")
-        izq.html(f'<div class="ot-tt">{html.escape(titulo)}</div><div class="ot-ts">{subtitulo}</div>')
-        chip = f'<span class="ot-chip" title="{html.escape(filtro)}">Filtrado por: {html.escape(filtro)}</span>' if filtro else ""
-        clic = '<span class="ot-tag ot-clic" title="Haga clic en la gráfica para filtrar; doble clic para limpiar">Clic para filtrar</span>' if enlazada else ""
-        der.html(f'<div class="ot-tags">{chip}{clic}{_tag(tipo)}</div>')
-        with info.popover("", icon=":material/info:", help="Acerca de esta gráfica"):
+        izq, info = st.columns([0.94, 0.06], vertical_alignment="top", gap="small")
+        chip = f'<span class="ot-chip">Filtro activo: {html.escape(filtro)}</span>' if filtro else ""
+        clic = ('<span class="ot-tag ot-clic" title="Haga clic en la gráfica para filtrar; doble clic para limpiar">'
+                'Clic para filtrar</span>') if enlazada else ""
+        izq.html(f'<div class="ot-tt">{html.escape(titulo)}</div><div class="ot-ts">{subtitulo}</div>'
+                 f'<div class="ot-tags">{_tag(tipo)}{clic}{chip}</div>')
+        with info.popover("", icon=":material/info:", help="Nota metodológica"):
             st.markdown(ayuda)
         yield
+        origen = fuente or "; ".join(FUENTES_MOSAICO.get(clave, []))
+        if origen:
+            st.html(f'<div class="ot-src"><b>Fuente:</b> {html.escape(origen)}. Elaboración propia.</div>')
 
 
 def grafica(fig, key: str, enlazada: bool = False):
@@ -199,9 +234,10 @@ def _sparkline(valores: list[float], ancho: int = 96, alto: int = 30) -> str:
     )
 
 
-def indicadores(items: list[dict]) -> None:
-    """Fila de indicadores. Cada item: etiqueta, valor y, opcionalmente, delta (fraccion) con
-    delta_texto, o contexto; y serie para la minigrafica."""
+def indicadores(items: list[dict], columnas: int | None = None) -> None:
+    """Fila de indicadores en una cuadricula uniforme (columnas = len(items) por defecto; 2 en tableta y
+    celular). Cada item: etiqueta, valor y, opcionalmente, delta (fraccion) con delta_texto, o contexto;
+    y serie para la minigrafica."""
     celdas = []
     for it in items:
         if it.get("delta") is not None:
@@ -215,7 +251,7 @@ def indicadores(items: list[dict]) -> None:
             f'<div class="row"><div class="v">{html.escape(it["valor"])}</div>{_sparkline(it.get("serie", []))}</div>'
             f'<div class="d">{pie}</div></div>'
         )
-    st.html(f'<div class="ot-kpis">{"".join(celdas)}</div>')
+    st.html(f'<div class="ot-kpis" style="--n:{columnas or len(items)}">{"".join(celdas)}</div>')
 
 
 def nota(tipo: str, texto: str) -> None:
@@ -259,11 +295,24 @@ def siguiente(pagina: str, titulo: str, puente: str, icono: str = ":material/arr
 
     Si la pagina corre sola (pruebas de una pagina sin app.py) el enlace no existe y se muestra solo el texto."""
     with st.container(key=f"siguiente-{_clave(pagina)}"):
-        st.html(f'<div class="ot-nl">Siguiente</div><div class="ot-sig">{puente}</div>')
+        st.html(f'<div class="ot-nl">Continúa en</div><div class="ot-sig">{puente}</div>')
         try:
             st.page_link(pagina, label=titulo, icon=icono)
         except st.errors.StreamlitAPIException:
             st.markdown(f"**{titulo}**")
+
+
+def pie_institucional(fecha_corte: str, generado: str) -> None:
+    """Pie de cada pagina: autoria, fuentes, fecha de corte, forma de citar y aviso de uso."""
+    st.html(
+        '<div class="ot-pie"><div><b>Observatorio de Inteligencia Turística del Lago de Atitlán.</b> Proyecto académico del '
+        'Grupo 3, CC3084 Data Science, Universidad del Valle de Guatemala, con datos institucionales del INGUAT '
+        'compartidos para uso docente. Las cifras no constituyen estadística oficial y no deben citarse fuera de '
+        f'ese contexto.<br>Cita sugerida: Grupo 3 UVG (2026). <i>Observatorio de Inteligencia Turística del Lago de '
+        f'Atitlán</i>. Datos con corte al {fecha_corte}.</div>'
+        f'<div><b>Fecha de corte de los datos:</b> {fecha_corte}<br><b>Última actualización:</b> {generado}<br>'
+        '<b>Contacto metodológico:</b> página Acerca del observatorio</div></div>'
+    )
 
 
 def sin_datos(mensaje: str) -> None:

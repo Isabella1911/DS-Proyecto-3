@@ -29,6 +29,7 @@ import matplotlib.pyplot as plt  # noqa: E402
 import pandas as pd  # noqa: E402
 from matplotlib.patches import FancyBboxPatch  # noqa: E402
 
+from scripts.maquetar_memoria import maquetar  # noqa: E402
 from src import etl, hallazgos  # noqa: E402
 from src import indicadores as ind  # noqa: E402
 from src import oferta as of  # noqa: E402
@@ -38,7 +39,7 @@ from src.estilo import (  # noqa: E402
     COLOR_DESTACADO, COLOR_ESTIMADO, COLOR_EVENTO, COLOR_HISTORIA, COLOR_OCUPACION, COLOR_REAL, COLORES_CLASE,
     COLORES_ORIGEN, COLORES_SEGMENTO, contraste, formato_numero,
 )
-from src.graficas import fig_cuadrante, fig_mensual_estimada  # noqa: E402
+from src.graficas import fig_cruce_ventana, fig_cuadrante, fig_mensual_estimada  # noqa: E402
 from src.normalizar import MUNICIPIO_CORTO  # noqa: E402
 
 MEMORIA = RAIZ / "docs" / "memoria"
@@ -141,7 +142,22 @@ def figuras(t: dict, r: dict) -> dict[str, str]:
     obs = obs.reindex(ind.calendario(obs.index, faltantes))
     fig_mensual_estimada(obs, est["estimados"]).update_layout(width=1000, height=420, paper_bgcolor="white") \
         .write_image(BUILD / "estimacion.png", scale=2)
-    return {"fig_arquitectura": "arquitectura.png", "fig_cuadrante": "cuadrante.png", "fig_estimacion": "estimacion.png"}
+    boletin = hallazgos.cargar_opcionales(etl.PROCESADOS)["boletin"]
+    figs = {"fig_arquitectura": "arquitectura.png", "fig_cuadrante": "cuadrante.png", "fig_estimacion": "estimacion.png",
+            "fig_captacion": "captacion.png"}
+    depto = etl.CONFIG["destino"]["departamento"]
+    from src.normalizar import departamento as _dep
+    ocup = t["ocupacion"][t["ocupacion"]["departamento"] == _dep(depto)].set_index("periodo")["ocupacion"]
+    v0, v1 = (pd.Timestamp(x + "-01") for x in etl.CONFIG["ventana_coincidente"])
+    cruce = of.cruce_ventana(t["mensual"], boletin, ocup, (v0, v1))
+    ext = cruce[cruce["origen"] == "Extranjero"]
+    if boletin is not None and len(ext):
+        fig_cruce_ventana(ext, "Noches por telefonía (turistas extranjeros)", "Noches en hotelería formal (no residentes)") \
+            .update_layout(width=1000, height=420, paper_bgcolor="white").write_image(BUILD / "captacion.png", scale=2)
+    else:
+        import shutil as _sh
+        _sh.copyfile(BUILD / "estimacion.png", BUILD / "captacion.png")
+    return figs
 
 
 # ---------------------------------------------------------------------------------------------
@@ -197,9 +213,9 @@ def tabla_clases(r: dict) -> str:
         "Estadía": pc["estadia_media"].map(lambda v: f"{v:.1f} días"),
         "IEE": pc["iee"].map(lambda v: f"{v:.2f}"),
         "Excursionistas": pc["pct_excursionistas"].map(pct),
-        "Presión finde": pc["presion_finde"].map(lambda v: f"{v:.2f}"),
+        "Presión fin de semana": pc["presion_finde"].map(lambda v: f"{v:.2f}"),
     })
-    return "Promedio simple de los municipios de cada clase (regla del cuadrante):\n\n" + tabla_md(df)
+    return tabla_md(df)
 
 
 def tabla_paleta() -> str:
@@ -293,8 +309,8 @@ def valores(t: dict, r: dict, cal: dict, figs: dict) -> dict[str, str]:
         "mercado_estadia": dm["mercado_estadia"] or "Sin dato", "estadia_mercado": f"{dm['estadia_mercado_max']:.1f}",
         "est_m1": num(est.iloc[0]), "est_m2": num(est.iloc[-1]),
         "metodo": tp["metodo"], "metodo_nombre": pr.METODOS[tp["metodo"]].lower().replace("×", "x"),
-        "mape_sel": f"{tp['mape'][tp['metodo']]:.1f} %",
-        "mape_otro": ", ".join(f"{k}: {tp['mape'][k]:.1f} %" for k in otro),
+        "mape_sel": f"{tp['mape'][tp['metodo']]:.1f}%",
+        "mape_otro": ", ".join(f"{tp['mape'][k]:.1f}% (método {k})" for k in otro),
         "tabla_fuentes": tabla_fuentes(cal["fuentes"]), "tabla_controles": tabla_controles(cal["controles"]),
         "fichas": (MEMORIA / "fichas.md").read_text(encoding="utf-8"),
         "umbral_hub": num(p["visitantes_mes"].max() * te.UMBRAL_HUB),
@@ -365,24 +381,15 @@ def main() -> None:
     faltan = re.findall(r"<<\w+>>", texto)
     if faltan:
         sys.exit(f"Marcadores sin valor: {sorted(set(faltan))}")
-    autores = "\n".join(f"  - {a}" for a in EQUIPO)
-    encabezado = (
-        "---\n"
-        "title: \"Memoria técnica\"\n"
-        "subtitle: \"Observatorio de Inteligencia Turística: Lago de Atitlán. Grupo 3, CC3084 Data Science, "
-        "Universidad del Valle de Guatemala\"\n"
-        f"author:\n{autores}\n"
-        f"date: \"{date.today().day} de {MESES[date.today().month - 1]} de {date.today().year}\"\n"
-        "lang: es-GT\n"
-        "toc-title: \"Contenido\"\n"
-        "---\n\n"
-    )
+    # La portada la construye scripts/maquetar_memoria.py; aqui solo idioma y titulo del indice
+    encabezado = "---\nlang: es-GT\ntoc-title: \"Contenido\"\n---\n\n"
     md = BUILD / "memoria.md"
     md.write_text(encabezado + texto, encoding="utf-8")
     ref = BUILD / "referencia.docx"
     referencia(ref)
     subprocess.run(["pandoc", str(md), "-o", str(SALIDA), "--reference-doc", str(ref), "--toc", "--toc-depth=2",
                     "--resource-path", str(BUILD), "-f", "markdown-smart"], check=True)
+    maquetar(SALIDA, EQUIPO)
     print(f"Memoria generada: {SALIDA.relative_to(RAIZ)}")
 
 

@@ -11,35 +11,45 @@ cal = calidad()
 encabezado_pagina(
     "Metodología",
     "Calidad de los datos",
-    "Cada base pasa por la capa de normalización (nombres de municipios, países y departamentos, coma decimal, fechas) "
-    "y por controles de calidad antes de llegar al tablero. Lo que no se reconoce se reporta aquí, no se descarta en silencio.",
+    "Cada fuente pasa por una capa de normalización (municipios, países, departamentos, separadores decimales y fechas) "
+    "y por controles de calidad antes de llegar al tablero. Los registros no reconocidos se documentan aquí; ninguno se "
+    "descarta sin registro.",
     f"ETL ejecutado<br><b>{cal['generado'].replace('T', ' ')}</b>",
 )
 aviso_sinteticos(origenes())
+NOMBRES = {"migracion": "Flujo migratorio", "movilidad_mensual": "Telefonía, base mensual",
+           "movilidad_diaria": "Telefonía, base diaria", "ocupacion": "Índice de ocupación hotelera",
+           "oferta": "Oferta hotelera", "boletines": "Boletines de ocupación (PDF)",
+           "frontera": "Encuesta en puestos fronterizos"}
+ORIGEN = {"real": "Institucional", "sintetico": "Sintético", "ausente": "No disponible"}
 
-with mosaico("cal-cobertura", "Cobertura de las fuentes", "Azul oscuro: mes con dato · azul claro: parcial · gris: sin dato · "
-             "recuadro violeta: meses que se estiman", "observado",
+with mosaico("cal-cobertura", "Cobertura temporal de las fuentes de datos", "Azul oscuro: mes con dato; azul claro: cobertura "
+             "parcial; gris: sin dato; recuadro violeta: meses estimados", "observado",
              "**¿Qué fuentes respaldan cada mes?** Un mes sin cobertura se lee como *sin dato*, nunca como cero. Telefonía "
              "y ocupación solo coinciden en sep–dic 2025: es la única ventana donde se cruzan."):
     grafica(fig_cobertura(cobertura(), CONFIG["estimacion"]["meses_sin_cobertura"]), "cal_cobertura")
 
-fuentes = pd.DataFrame(cal["fuentes"]).T.rename(columns={
+fuentes = pd.DataFrame(cal["fuentes"]).T
+fuentes.index = [NOMBRES.get(f, f) for f in fuentes.index]
+fuentes["origen"] = fuentes["origen"].map(lambda o: ORIGEN.get(o, o))
+fuentes = fuentes.rename(columns={
     "archivo": "Archivo", "origen": "Origen", "sha256": "Huella SHA-256", "filas_leidas": "Filas leídas",
     "filas_limpias": "Filas limpias", "tabla": "Tabla limpia"})
-with mosaico("cal-fuentes", "Fuentes", "Archivo leído, origen (real o sintético) y filas", "observado",
+with mosaico("cal-fuentes", "Fuentes procesadas", "Archivo, origen, huella de integridad y registros leídos y depurados", "observado",
              "La huella SHA-256 identifica exactamente qué versión del archivo se procesó."):
     st.dataframe(fuentes, width="stretch")
 
 ctrl = pd.DataFrame(cal["controles"])
-ICONO = {"ok": "✅ ok", "aviso": "⚠️ aviso", "error": "⛔ error"}
+ICONO = {"ok": "Correcto", "aviso": "Aviso", "error": "Error"}
 ctrl["estado"] = ctrl["estado"].map(ICONO)
-with mosaico("cal-controles", "Controles aplicados", "Un renglón por control y fuente", "observado",
+ctrl["fuente"] = ctrl["fuente"].map(lambda f: NOMBRES.get(f, f))
+with mosaico("cal-controles", "Controles de calidad", "Resultado de cada control por fuente", "observado",
              "**aviso**: se corrigió o se excluyó y se documenta. **error**: dato imposible (p. ej. días-persona menores "
              "que visitantes) que hay que revisar en la fuente."):
     st.dataframe(ctrl.rename(columns={"fuente": "Fuente", "control": "Control", "estado": "Estado", "detalle": "Detalle",
                                       "filas": "Filas"}), width="stretch", hide_index=True, height=min(36 * (len(ctrl) + 1), 900),
                  column_config={"Detalle": st.column_config.TextColumn(width="large")})
-    with st.expander("Detalle completo de avisos y fuentes complementarias", icon=":material/warning:"):
+    with st.expander("Detalle de avisos y de las fuentes complementarias", icon=":material/description:"):
         for c in cal["controles"]:
             if c["estado"] != "ok" or c["fuente"] in ("boletines", "frontera"):
-                st.markdown(f"- **{c['fuente']} · {c['control']}** ({ICONO[c['estado']]}): {c['detalle']}")
+                st.markdown(f"- {NOMBRES.get(c['fuente'], c['fuente'])}, {c['control'].lower()} ({ICONO[c['estado']].lower()}): {c['detalle']}")

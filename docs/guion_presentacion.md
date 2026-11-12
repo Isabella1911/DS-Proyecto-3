@@ -24,7 +24,7 @@ datos, verificar con `python scripts/revisar_datos.py`.
 | Módulo 4 · Reto: red de municipios | 3:00 | Integrante 4 | 4 · Red de municipios |
 | Conclusiones: 3 hallazgos y 3 recomendaciones | 2:00 | Integrante 4 → Integrante 1 cierra | Conclusiones |
 
-Frase de transición sugerida al final de cada bloque (está escrita en el tablero, en el recuadro "Siguiente"):
+Frase de transición sugerida al final de cada bloque (está escrita en el tablero, en el recuadro "Continúa en"):
 "Ya sabemos *X*; la siguiente pregunta es *Y*, y la responde [nombre] con el módulo N".
 
 ## 1. Apertura (Inicio)

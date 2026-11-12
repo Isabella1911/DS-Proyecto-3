@@ -20,11 +20,11 @@ periodos = sorted(m_todo["periodo"].unique())
 etiq = {p: f"{MES_ES[p.month - 1]} {p.year}" for p in periodos}
 
 encabezado_pagina(
-    "Módulo 1 · Diagnóstico macro",
+    "Módulo 1. Diagnóstico de la demanda",
     "Demanda y mercados emisores",
-    "¿Cuántos visitantes recibe el lago, cuánto se quedan y de dónde vienen? Haga clic en uno o varios municipios "
-    "para que todo el módulo se recalcule para esa selección.",
-    f"Telefonía mensual<br><b>{len(periodos)} meses</b> con dato",
+    "Volumen de visitantes, permanencia y procedencia. La selección de uno o varios municipios en la primera gráfica "
+    "recalcula todos los indicadores del módulo.",
+    f"Fuente: telefonía móvil, base mensual<br><b>{len(periodos)} meses</b> con dato",
 )
 aviso_sinteticos(origenes())
 
@@ -56,7 +56,7 @@ sel_previa = _seleccion(st.session_state.get("m1_mun_chart"))
 
 col_a, col_b = st.columns([1, 1.25], gap="small")
 with col_a, mosaico(
-    "m1-mun", "Visitantes por municipio", "Promedio mensual, nacionales y extranjeros · clic para filtrar el módulo",
+    "m1-mun", "Visitantes por municipio y origen", "Promedio mensual de visitantes únicos en el periodo seleccionado",
     "observado",
     "**¿Qué municipios concentran la demanda?**\n\nCada barra es el promedio de visitantes únicos por mes del municipio. "
     "Haga clic en una barra (Shift + clic para varias) y los indicadores y gráficas de la derecha y de abajo se "
@@ -77,31 +77,31 @@ nombre_ambito = ", ".join(corto(x) for x in ambito) if seleccion else "Los 10 mu
 k = ind.kpis_demanda(ms)
 
 with col_b:
-    st.html(f'<div class="ot-ts" style="margin:.2rem 0 .4rem">Indicadores de: <b>{nombre_ambito}</b>'
-            + (" · <i>suma de municipios (puede duplicar visitantes)</i>" if es_suma else "") + "</div>")
+    st.html(f'<div class="ot-ts" style="margin:.2rem 0 .4rem">Ámbito: <b>{nombre_ambito}</b>'
+            + (". Suma de municipios; puede contar dos veces a un mismo visitante." if es_suma else "") + "</div>")
     indicadores([
         {"etiqueta": "Visitantes promedio por mes", "valor": formato_numero(k["visitantes_mes"]),
          "contexto": f"{k['meses']} meses con dato", "serie": k["serie_visitantes"]},
         {"etiqueta": "Días-persona promedio por mes", "valor": formato_numero(k["dias_persona_mes"]),
-         "contexto": "todos los segmentos"},
+         "contexto": "Turistas y excursionistas"},
         {"etiqueta": "Estadía media ponderada", "valor": f"{k['estadia_media']:.2f} días",
-         "contexto": "Σ días-persona / Σ visitantes, solo > 1 día", "serie": k["serie_estadia"]},
+         "contexto": "Turistas con pernocta", "serie": k["serie_estadia"]},
         {"etiqueta": "Turistas con pernocta", "valor": f"{k['pct_turistas']:.0%}",
-         "contexto": f"excursionistas: {1 - k['pct_turistas']:.0%}"},
-    ])
+         "contexto": f"Excursionistas: {1 - k['pct_turistas']:.0%}"},
+    ], columnas=2)
     nota("observado",
-         f"{nombre_ambito}: {formato_numero(k['visitantes_mes'])} visitantes por mes en promedio, de ellos "
-         f"{formato_numero(k['nacionales_mes'])} nacionales (con factor de expansión) y "
-         f"{formato_numero(k['extranjeros_mes'])} extranjeros, que se reportan por separado. Los turistas que "
-         f"pernoctan se quedan {k['estadia_media']:.1f} días en promedio.")
+         f"{nombre_ambito}: {formato_numero(k['visitantes_mes'])} visitantes por mes en promedio, de los cuales "
+         f"{formato_numero(k['nacionales_mes'])} son nacionales (cifra con factor de expansión) y "
+         f"{formato_numero(k['extranjeros_mes'])} extranjeros. Los turistas con pernocta permanecen "
+         f"{k['estadia_media']:.1f} días en promedio.")
     if es_suma:
-        nota("interpretacion", "Con varios municipios, los volúmenes son la **suma de municipios**: una cota superior "
-             "del total del lago. La estadía media y los porcentajes sí son comparables porque son cocientes.")
+        nota("interpretacion", "Con varios municipios, los volúmenes corresponden a la suma de municipios, una cota "
+             "superior del total del lago. La estadía media y los porcentajes son comparables porque son cocientes.")
 
 # --- Segmentacion y mercados ---------------------------------------------------------------------
 c1, c2 = st.columns(2, gap="small")
 with c1, mosaico(
-    "m1-seg", "Turistas vs. excursionistas", "Visitantes por mes y segmento · línea: % con pernocta", "observado",
+    "m1-seg", "Visitantes por segmento de estadía", "Visitantes únicos por mes; sobre cada barra, porcentaje de turistas con pernocta", "observado",
     "**¿Qué parte de los visitantes pasa la noche?**\n\nTurista: más de un día en el destino (segmento 'mayor a 1'). "
     "Excursionista: menos de 24 horas ('menor a 1'); por definición su permanencia es 1 y no entra en la estadía media. "
     "Los meses sin cobertura aparecen vacíos y rotulados 'Sin dato', nunca como cero.",
@@ -111,7 +111,7 @@ with c1, mosaico(
 
 top = ind.top_paises(ms, 10)
 with c2, mosaico(
-    "m1-top", "Top 10 mercados emisores extranjeros", "Visitantes en el periodo · % sobre el total de extranjeros",
+    "m1-top", "Diez principales mercados emisores extranjeros", "Visitantes en el periodo; porcentaje sobre el total de extranjeros",
     "observado",
     "**¿De qué países vienen los extranjeros?**\n\nSolo visitantes extranjeros. Los nacionales se reportan aparte "
     "porque su conteo incorpora un **factor de expansión** y no es comparable directamente con el de los extranjeros.",
@@ -123,16 +123,16 @@ with c2, mosaico(
         grafica(fig_top_paises(top), "m1_top")
     nac = ms[ms["origen"] == "Nacional"]
     if not nac.empty:
-        st.caption(f"**Nacionales (Guatemala):** {formato_numero(nac.groupby('periodo')['visitantes'].sum().mean())} "
-                   f"visitantes por mes en promedio · estadía media {ind.estadia_media(nac):.2f} días. "
-                   "Cifra con factor de expansión: no se compara en la misma escala que el ranking.")
+        st.caption(f"Visitantes nacionales: {formato_numero(nac.groupby('periodo')['visitantes'].sum().mean())} por mes "
+                   f"en promedio, con estadía media de {ind.estadia_media(nac):.2f} días. Cifra con factor de expansión, "
+                   "no comparable en escala con el ranking de extranjeros.")
 
 # --- Visualizacion adicional: estadia por nacionalidad ------------------------------------------
 c3, c4 = st.columns([1.25, 1], gap="small")
 with c3, mosaico(
-    "m1-estadia", "¿Quién se queda más tiempo?", "Estadía media ponderada por nacionalidad (top 10 por volumen)",
+    "m1-estadia", "Estadía media por nacionalidad", "Turistas con pernocta de los diez principales mercados extranjeros, días por visitante",
     "observado",
-    "**Visualización adicional del grupo.** Compara la estadía media de cada mercado con la de los nacionales y con "
+    "**Visualización complementaria.** Compara la estadía media de cada mercado con la de los nacionales y con "
     "el promedio ponderado. Un mercado con pocas llegadas pero estadía larga puede generar tantas noches como uno "
     "masivo de visita corta, algo clave para la promoción del INGUAT.",
     filtro=nombre_ambito if seleccion else None,
@@ -141,20 +141,20 @@ with c3, mosaico(
         grafica(fig_estadia_paises(top, ind.estadia_media(ms[ms["origen"] == "Nacional"]), k["estadia_media"]), "m1_estadia")
 
 with c4, st.container(key="tile-m1-lectura"):
-    st.html('<div class="ot-tt">Lectura del módulo</div><div class="ot-ts">Qué muestran los datos de la selección</div>')
+    st.html('<div class="ot-tt">Resultados del módulo</div><div class="ot-ts">Según la selección actual</div>')
     if not top.empty:
         lider = top.index[0]
         larga = top["estadia_media"].idxmax()
-        nota("observado", f"**{lider}** es el primer mercado extranjero ({top['pct'].iloc[0]:.0%} de los extranjeros). "
-             f"**{larga}** es el de estadía más larga ({top['estadia_media'].max():.1f} días).")
+        nota("observado", f"{lider} es el primer mercado extranjero, con el {top['pct'].iloc[0]:.0%} de los visitantes "
+             f"extranjeros. {larga} registra la estadía más larga ({top['estadia_media'].max():.1f} días).")
     perfil = ind.por_municipio(m)
     if not perfil.empty:
         mas_largo = perfil["estadia_media"].idxmax()
         mayor = perfil["visitantes_mes"].idxmax()
         if mas_largo != mayor:
-            nota("interpretacion", f"**{corto(mas_largo)}** tiene la estadía más larga del lago "
-                 f"({perfil.loc[mas_largo, 'estadia_media']:.1f} días) y **{corto(mayor)}** el mayor "
-                 "volumen: el lago combina puertas de entrada con destinos de larga estancia (se desarrolla en el módulo 4).")
+            nota("interpretacion", f"{corto(mas_largo)} tiene la estadía más larga del lago "
+                 f"({perfil.loc[mas_largo, 'estadia_media']:.1f} días) y {corto(mayor)} el mayor volumen. El lago "
+                 "combina puertas de entrada con destinos de permanencia; el módulo 4 desarrolla esta tipología.")
         else:
             nota("interpretacion", f"**{corto(mayor)}** concentra a la vez el mayor volumen y la estadía más larga "
                  f"({perfil.loc[mayor, 'estadia_media']:.1f} días): es puerta de entrada y destino de estancia (módulo 4).")
@@ -175,9 +175,8 @@ with c4, st.container(key="tile-m1-lectura"):
 
 # --- Hilo hacia el siguiente modulo --------------------------------------------------------------
 siguiente(
-    "paginas/m2_temporal.py", "Módulo 2 · Dinámica temporal y pronóstico",
-    "Ya se sabe cuántos visitantes llegan y de dónde. La siguiente pregunta es <b>cuándo</b>: qué días y "
-    "festividades llenan el lago y cuántos visitantes hubo en enero y febrero de 2026, los meses sin "
-    "telefonía.",
+    "paginas/m2_temporal.py", "Módulo 2. Dinámica temporal y estimación",
+    "Dinámica temporal: días y festividades de mayor afluencia, y estimación de enero y febrero de 2026, "
+    "meses sin cobertura de telefonía.",
     ":material/calendar_month:",
 )

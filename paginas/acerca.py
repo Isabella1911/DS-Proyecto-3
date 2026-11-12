@@ -14,10 +14,11 @@ TRAZO_ES = {"solid": "línea continua", "dash": "guiones", "dot": "punteada"}
 encabezado_pagina(
     "Metodología",
     "Acerca del observatorio",
-    "Definiciones de los indicadores, significado de los colores y límites de las fuentes.",
+    "Definición formal de los indicadores, criterios de diseño visual, fuentes utilizadas y limitaciones.",
+    "Documentación completa en la memoria técnica",
 )
 
-st.subheader("Indicadores principales")
+st.html('<div class="ot-sec">Indicadores principales</div>')
 st.markdown(
     r"""
 | Indicador | Fórmula | Regla |
@@ -40,10 +41,10 @@ st.markdown(
 """
 )
 
-st.subheader("Paleta de color")
-st.caption("Cada color significa siempre lo mismo en todo el tablero. Base: paleta validada para daltonismo del Lab 10.")
+st.html('<div class="ot-sec">Paleta de color</div><div class="ot-ts" style="margin-bottom:.5rem">Cada color tiene un '
+        'significado único y constante en todo el tablero.</div>')
 st.markdown(
-    "Tres reglas de teoría del color guían la paleta:\n\n"
+    "La paleta responde a tres criterios de teoría del color:\n\n"
     "1. **Tono para categorías, luminosidad para magnitudes.** Las categorías (origen, segmento, clase) usan tonos "
     "distintos; las magnitudes (mapas de calor) usan un solo tono de azul que va de claro a oscuro, porque el ojo ordena "
     "la luminosidad sin necesidad de leyenda.\n"
@@ -63,7 +64,7 @@ PALETA = [
     ("Dato observado", COLOR_REAL, "Tinta negra: lo medido es lo que más resalta."),
     ("Estimación", COLOR_ESTIMADO, "Violeta y línea discontinua: un tono que no se usa para nada más, para que una estimación nunca se lea como dato."),
     ("Festividad", COLOR_EVENTO, "Ámbar: color de aviso, se distingue sobre la serie gris."),
-    ("Selección / filtro", COLOR_DESTACADO, "Azul interactivo de IBM Carbon: marca lo que se eligió con un clic."),
+    ("Selección y filtro", COLOR_DESTACADO, "Azul interactivo: identifica el elemento seleccionado."),
     ("Contexto", COLOR_HISTORIA, "Gris: referencias y series de fondo, para no competir con el dato."),
     ("Ocupación hotelera", COLOR_OCUPACION, "Verde azulado oscuro: porcentajes de hoteles, distintos de las personas."),
 ] + [(f"Clase: {k}", v, f"Marcador {FORMA_ES[SIMBOLOS_CLASE[k]]}, {TRAZO_ES[TRAZOS_CLASE[k]]}. Con protanopia el "
@@ -81,7 +82,7 @@ st.html(
     '<style>td,th{padding:.35rem .5rem;border-bottom:1px solid #e0e0e0;vertical-align:top}</style>'
 )
 
-st.subheader("Fuentes y limitaciones")
+st.html('<div class="ot-sec">Fuentes y limitaciones</div>')
 st.markdown(
     "- **Siete fuentes**: telefonía mensual y diaria (hoja Atitlan), base de migración, índice de ocupación, oferta "
     "hotelera, boletines de ocupación 2023–2025 (PDF) y encuesta de perfil del visitante en fronteras (BD complementaria). "
@@ -102,8 +103,8 @@ st.markdown(
     "reporta en el módulo 4."
 )
 
-st.subheader("Equipo · Grupo 3")
+st.html('<div class="ot-sec">Equipo</div>')
 st.markdown(
     "- Anthony Lou Schwank\n- Christa Isabella Obando Guzmán\n- Fabian Prado Dluzniewski\n- Luis Fernando Mendoza Alvarez\n\n"
-    "CC3084 Data Science, Universidad del Valle de Guatemala, 2026."
+    "Grupo 3, CC3084 Data Science, Universidad del Valle de Guatemala, segundo semestre de 2026."
 )

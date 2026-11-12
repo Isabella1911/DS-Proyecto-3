@@ -9,6 +9,11 @@ Regla del tablero: cada color significa SIEMPRE lo mismo en toda la aplicacion.
 
 from __future__ import annotations
 
+import re
+from datetime import date, datetime
+
+import numpy as np
+import pandas as pd
 import plotly.graph_objects as go
 
 # Categoricos del observatorio. Cada color significa SIEMPRE lo mismo en todas las paginas.
@@ -101,6 +106,70 @@ def aplicar_estilo(fig: go.Figure, alto: int = 420) -> go.Figure:
         tickfont=dict(color=TINTA_TENUE),
         title_font=dict(color=TINTA_SECUNDARIA),
     )
+    fechas_en_espanol(fig)
+    return fig
+
+
+_MESES_CORTOS = ["ene", "feb", "mar", "abr", "may", "jun", "jul", "ago", "sep", "oct", "nov", "dic"]
+_ETIQUETA_MES = re.compile(r"^(" + "|".join(_MESES_CORTOS) + r") (\d{4})$")
+
+
+def _como_fechas(x) -> pd.DatetimeIndex | None:
+    """Fechas de una traza si el eje es temporal (datetime64, Timestamp o texto ISO); None si no."""
+    arr = np.asarray(x)
+    if arr.size == 0:
+        return None
+    if arr.dtype.kind == "M":
+        return pd.DatetimeIndex(arr)
+    primero = arr.flat[0]
+    if isinstance(primero, (pd.Timestamp, datetime, date, np.datetime64)):
+        return pd.DatetimeIndex(pd.to_datetime(arr))
+    if isinstance(primero, str) and re.match(r"^\d{4}-\d{2}-\d{2}", primero):
+        return pd.DatetimeIndex(pd.to_datetime(arr, errors="coerce")).dropna()
+    return None
+
+
+def fechas_en_espanol(fig: go.Figure, paso_minimo: int = 1) -> go.Figure:
+    """Plotly rotula los meses en ingles ('Jan', 'Sep'). Se reemplazan las marcas de cada eje temporal
+    por meses en espanol, horizontales y con el anio solo cuando cambia ('sep / 2025', 'oct', ...).
+    Tambien ordena en dos lineas las categorias de texto con forma 'sep 2025'."""
+    temporales: dict[str, list[pd.Timestamp]] = {}
+    categorias: dict[str, list[str]] = {}
+    for tr in fig.data:
+        x = getattr(tr, "x", None)
+        if x is None or getattr(tr, "orientation", None) == "h" or tr.type in ("heatmap", "scattermap"):
+            continue
+        eje = "xaxis" + (str(tr.xaxis)[1:] if getattr(tr, "xaxis", None) else "")
+        fechas = _como_fechas(x)
+        if fechas is not None and len(fechas):
+            temporales.setdefault(eje, []).extend([fechas.min(), fechas.max()])
+            continue
+        valores = [str(v) for v in np.asarray(x).ravel()]
+        if valores and all(_ETIQUETA_MES.match(v) for v in valores):
+            lista = categorias.setdefault(eje, [])
+            lista.extend(v for v in valores if v not in lista)
+    for eje, extremos in temporales.items():
+        ini, fin = min(extremos), max(extremos)
+        meses = (fin.year - ini.year) * 12 + fin.month - ini.month + 1
+        paso = max(paso_minimo, 1 if meses <= 14 else 2 if meses <= 30 else 3 if meses <= 45 else 6)
+        primero = pd.Timestamp(ini.year, ini.month, 1)
+        if primero < ini:
+            primero += pd.offsets.MonthBegin(1)
+        marcas = list(pd.date_range(primero, fin + pd.Timedelta(days=1), freq=f"{paso}MS"))
+        texto, anio = [], None
+        for t in marcas:
+            texto.append(f"{_MESES_CORTOS[t.month - 1]}<br>{t.year}" if t.year != anio else _MESES_CORTOS[t.month - 1])
+            anio = t.year
+        fig.layout[eje].update(tickmode="array", tickvals=marcas, ticktext=texto, tickangle=0)
+    for eje, valores in categorias.items():
+        orden = sorted(valores, key=lambda v: (int(v[-4:]), _MESES_CORTOS.index(v[:3])))
+        texto, anio = [], None
+        for v in orden:
+            m, a = v.split(" ")
+            texto.append(f"{m}<br>{a}" if a != anio else m)
+            anio = a
+        fig.layout[eje].update(tickmode="array", tickvals=orden, ticktext=texto, tickangle=0,
+                               categoryorder="array", categoryarray=orden)
     return fig
 
 
@@ -121,9 +190,7 @@ def contraste(color: str, fondo: str = SUPERFICIE) -> float:
 
 
 def formato_numero(valor: float) -> str:
-    """12345678 -> '12.3 M'; 45678 -> '45.7 mil'."""
-    if abs(valor) >= 1_000_000:
-        return f"{valor / 1_000_000:,.1f} M"
-    if abs(valor) >= 1_000:
-        return f"{valor / 1_000:,.1f} mil"
+    """Cifra completa con separador de miles (norma del tablero y de la memoria): 996665 -> '996,665'."""
+    if valor is None or pd.isna(valor):
+        return "Sin dato"
     return f"{valor:,.0f}"
