@@ -14,6 +14,7 @@ import argparse
 import hashlib
 import json
 import os
+import re
 from dataclasses import asdict, dataclass, field
 from datetime import datetime
 from pathlib import Path
@@ -58,6 +59,12 @@ def _carpeta_datos() -> Path:
     return Path(os.environ.get("OBS_DATOS", RAIZ / CONFIG["rutas"]["datos"]))
 
 
+def localizar_todos(nombre: str) -> list[Path]:
+    """Todos los archivos reales de una fuente opcional (p. ej. un boletin por anio); [] si no hay."""
+    patron = CONFIG["fuentes"][nombre]["patron"]
+    return sorted(p for p in _carpeta_datos().glob(patron) if p.is_file() and not p.name.startswith("~$"))
+
+
 def localizar(nombre: str, forzar_sinteticos: bool = False) -> tuple[Path, str]:
     """Ruta del archivo de la fuente y si es 'real' o 'sintetico'."""
     patron = CONFIG["fuentes"][nombre]["patron"]
@@ -75,11 +82,12 @@ def localizar(nombre: str, forzar_sinteticos: bool = False) -> tuple[Path, str]:
     )
 
 
-def _huella(ruta: Path) -> str:
+def _huella(*rutas: Path) -> str:
     h = hashlib.sha256()
-    with ruta.open("rb") as f:
-        for bloque in iter(lambda: f.read(1 << 20), b""):
-            h.update(bloque)
+    for ruta in rutas:
+        with ruta.open("rb") as f:
+            for bloque in iter(lambda: f.read(1 << 20), b""):
+                h.update(bloque)
     return h.hexdigest()[:16]
 
 
@@ -269,6 +277,126 @@ def limpiar_oferta(crudo: pd.DataFrame, rep: Reporte) -> pd.DataFrame:
 
 
 # ---------------------------------------------------------------------------------------------
+# Fuentes opcionales
+
+MESES_ES = ["enero", "febrero", "marzo", "abril", "mayo", "junio", "julio", "agosto", "septiembre", "octubre",
+            "noviembre", "diciembre"]
+COLUMNAS_BOLETIN = ["hab_residentes", "huespedes_residentes", "noches_residentes", "hab_no_residentes",
+                    "huespedes_no_residentes", "noches_no_residentes", "hab_total", "ocupacion"]
+_MES_PAGINA = re.compile(r"\b(" + "|".join(MESES_ES) + r")\b[\s\-]*(?:de\s+|del\s+)?(\d{4})", re.IGNORECASE)
+_NUMERO = re.compile(r"\d[\d,]*%?")
+
+
+def leer_boletin(ruta: Path, departamento: str) -> list[dict]:
+    """Movimiento hotelero mensual de un departamento en un boletin anual (PDF).
+
+    Se leen solo las paginas 'Movimiento hotelero ... residentes y no residentes' de un mes (se
+    descartan los acumulados) y el renglon del departamento, que debe traer exactamente 8 cifras:
+    habitaciones, huespedes y noches de residentes y de no residentes, habitaciones totales e indice.
+    """
+    import logging
+
+    from pypdf import PdfReader  # import local: solo se necesita si existen los boletines
+
+    logging.getLogger("pypdf").setLevel(logging.ERROR)  # avisos de texto rotado en graficas, irrelevantes aqui
+
+    filas = []
+    for pagina in PdfReader(str(ruta)).pages:
+        texto = pagina.extract_text(extraction_mode="layout") or ""
+        plano = re.sub(r"\s+", " ", texto).lower()
+        encabezado = re.sub(r"\s+", " ", " ".join(texto.splitlines()[:12])).lower()
+        if "movimiento hotelero" not in plano or "acumulado" in encabezado:
+            continue
+        mes = _MES_PAGINA.search(texto)
+        if not mes:
+            continue
+        for linea in texto.splitlines():
+            nombre = re.split(r"\d", linea, maxsplit=1)[0].split(",")[0].strip()
+            if not nombre or nz.departamento(nombre) != departamento:
+                continue
+            cifras = _NUMERO.findall(linea[len(re.split(r"\d", linea, maxsplit=1)[0]):])
+            if len(cifras) != 8 or not cifras[-1].endswith("%"):
+                continue
+            valores = [float(c.replace(",", "").rstrip("%")) for c in cifras]
+            valores[-1] /= 100
+            filas.append({"anio": int(mes.group(2)), "mes": MESES_ES.index(mes.group(1).lower()) + 1,
+                          "departamento": departamento, **dict(zip(COLUMNAS_BOLETIN, valores)), "archivo": ruta.name})
+            break
+    return filas
+
+
+def limpiar_boletines(rutas: list[Path], ocupacion: pd.DataFrame, rep: Reporte) -> pd.DataFrame:
+    f = "boletines"
+    depto = nz.departamento(CONFIG["destino"]["departamento"])
+    filas = [fila for ruta in rutas for fila in leer_boletin(ruta, depto)]
+    out = pd.DataFrame(filas, columns=["anio", "mes", "departamento", *COLUMNAS_BOLETIN, "archivo"])
+    out = out.drop_duplicates(["anio", "mes"]).sort_values(["anio", "mes"]).reset_index(drop=True)
+    out["periodo"] = pd.to_datetime(dict(year=out["anio"], month=out["mes"], day=1))
+    esperados = 12 * len(rutas)  # un boletin anual por archivo
+    rep.agregar(f, "Meses extraídos de los boletines", max(esperados - len(out), 0),
+                f"{len(out)} meses de {depto} leídos de {len(rutas)} boletines "
+                f"({out['periodo'].min():%m/%Y} a {out['periodo'].max():%m/%Y}).")
+    suma = out[["hab_residentes", "hab_no_residentes"]].sum(axis=1)
+    rep.agregar(f, "Habitaciones de residentes + no residentes distinta del total", (suma - out["hab_total"]).abs().gt(1).sum(),
+                "Control aritmético de cada renglón extraído.", grave=True)
+    o = ocupacion[ocupacion["departamento"] == depto].set_index("periodo")["ocupacion"]
+    comp = out.set_index("periodo")["ocupacion"].to_frame("boletin").join(o.rename("csv"), how="inner")
+    distintos = (comp["boletin"] - comp["csv"]).abs() > 0.011
+    rep.agregar(f, "Ocupación del boletín distinta del CSV oficial", distintos.sum(),
+                f"Se compararon {len(comp)} meses; {len(comp) - int(distintos.sum())} coinciden con el CSV (±1 punto). "
+                "La ocupación del tablero sale siempre del CSV; el boletín aporta huéspedes y noches por residencia.")
+    return out
+
+
+def limpiar_frontera(crudo: pd.DataFrame, rep: Reporte) -> pd.DataFrame:
+    """Agregados de la encuesta en fronteras para quienes declaran ir al lago (nunca microdatos)."""
+    f = "frontera"
+    _exigir(crudo, ["nuevo_destino", "BD", "hospedaje", "agrupacion_nombre", "nombre_frontera", "tipo_transporte", "noches"], f)
+    destino = CONFIG["fuentes"]["frontera"]["destino_declarado"]
+    s = crudo[crudo["nuevo_destino"].map(nz.clave) == nz.clave(destino)].copy()
+    rep.agregar(f, "Encuestas con destino declarado al lago", 0,
+                f"{len(s):,} de {len(crudo):,} encuestas declaran '{destino}'. Muestra por cuotas sin factor de "
+                "expansión: solo se reportan porcentajes dentro del segmento.")
+    nacional = nz.clave(CONFIG["pais_nacional"])
+    s["origen"] = s["agrupacion_nombre"].map(lambda x: ORIGEN_NACIONAL if nz.clave(x) == nacional else ORIGEN_EXTRANJERO)
+    s["noches_rango"] = pd.cut(pd.to_numeric(s["noches"], errors="coerce"), [-0.1, 1, 3, 7, 14, 30, 1000],
+                               labels=["0-1", "2-3", "4-7", "8-14", "15-30", "31+"]).astype("string").fillna("Sin dato")
+    claves = {"BD": "ola", "agrupacion_nombre": "residencia", "origen": "origen", "hospedaje": "hospedaje",
+              "nombre_frontera": "puesto", "frontera_tipo": "tipo_puesto", "tipo_transporte": "transporte",
+              "noches_rango": "noches_rango"}
+    s["fecha"] = pd.to_datetime(s["fecha"], errors="coerce")
+    out = (s[[*claves, "id_unico", "total_visitantes", "fecha"]].rename(columns=claves).groupby(list(claves.values()), dropna=False, as_index=False)
+           .agg(encuestas=("id_unico", "size"), personas=("total_visitantes", "sum"),
+                desde=("fecha", "min"), hasta=("fecha", "max")))
+    olas = s.groupby("BD")["fecha"].agg(["min", "max", "size"])
+    rep.agregar(f, "Olas de la encuesta", 0, "; ".join(f"{o}: {r['size']:,} encuestas ({r['min']:%m/%Y}–{r['max']:%m/%Y})"
+                                                       for o, r in olas.iterrows()))
+    return out
+
+
+OPCIONALES = {"boletines": "boletin_hotelero", "frontera": "frontera_destino"}
+
+
+def _ejecutar_opcionales(destino: Path, rep: Reporte, ocupacion: pd.DataFrame, forzar_sinteticos: bool) -> None:
+    for fuente, tabla in OPCIONALES.items():
+        salida = destino / f"{tabla}.parquet"
+        rutas = [] if forzar_sinteticos else localizar_todos(fuente)
+        if not rutas:
+            salida.unlink(missing_ok=True)
+            rep.fuentes[fuente] = {"archivo": "", "origen": "ausente", "sha256": "", "filas_leidas": 0,
+                                   "filas_limpias": 0, "tabla": ""}
+            continue
+        if fuente == "boletines":
+            limpio, leidas = limpiar_boletines(rutas, ocupacion, rep), len(rutas)
+        else:
+            crudo = pd.read_parquet(rutas[-1])
+            limpio, leidas = limpiar_frontera(crudo, rep), len(crudo)
+        limpio.to_parquet(salida, index=False)
+        rep.fuentes[fuente] = {"archivo": ", ".join(r.name for r in rutas), "origen": "real", "sha256": _huella(*rutas),
+                               "filas_leidas": leidas, "filas_limpias": len(limpio), "tabla": salida.name}
+
+
+# ---------------------------------------------------------------------------------------------
 
 
 TABLAS = {
@@ -283,16 +411,19 @@ TABLAS = {
 def ejecutar(forzar_sinteticos: bool = False, destino: Path = PROCESADOS) -> Reporte:
     destino.mkdir(parents=True, exist_ok=True)
     rep = Reporte()
+    limpias: dict[str, pd.DataFrame] = {}
     for fuente, (tabla, limpiar) in TABLAS.items():
         ruta, origen = localizar(fuente, forzar_sinteticos)
         cfg = CONFIG["fuentes"][fuente]
         crudo = _leer_excel(ruta, cfg["hoja"]) if ruta.suffix.lower() in {".xlsx", ".xls"} else pd.read_csv(ruta)
         limpio = limpiar(crudo, rep)
+        limpias[fuente] = limpio
         limpio.to_parquet(destino / f"{tabla}.parquet", index=False)
         rep.fuentes[fuente] = {
             "archivo": ruta.name, "origen": origen, "sha256": _huella(ruta), "filas_leidas": len(crudo),
             "filas_limpias": len(limpio), "tabla": f"{tabla}.parquet",
         }
+    _ejecutar_opcionales(destino, rep, limpias["ocupacion"], forzar_sinteticos)
     salida = {"generado": datetime.now().isoformat(timespec="seconds"), "fuentes": rep.fuentes,
               "controles": [asdict(c) for c in rep.controles]}
     (destino / "calidad.json").write_text(json.dumps(salida, ensure_ascii=False, indent=2), encoding="utf-8")
@@ -317,6 +448,11 @@ def vigente(destino: Path = PROCESADOS) -> bool:
             return False
         p = previas.get(fuente, {})
         if (p.get("archivo"), p.get("origen"), p.get("sha256")) != (ruta.name, origen, _huella(ruta)):
+            return False
+    for fuente in OPCIONALES:
+        rutas = localizar_todos(fuente)
+        actual = _huella(*rutas) if rutas else ""
+        if previas.get(fuente, {}).get("sha256", "") != actual:
             return False
     return True
 

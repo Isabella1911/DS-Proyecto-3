@@ -20,15 +20,28 @@ fuentes:
     patron: "Base_Migracion*.xlsx"
     hoja: Datos
   movilidad_mensual:
-    patron: "*movilidad*mensual*.xlsx"
+    patron: "*movi*dad*mensual*.xlsx"  # el archivo oficial se llama BD_moviidad_mensual.xlsx
     hoja: Atitlan
   movilidad_diaria:
-    patron: "*movilidad*diari*.xlsx"
+    patron: "*movi*dad*diari*.xlsx"    # idem: BD_moviidad_diario.xlsx
     hoja: Atitlan
   ocupacion:
     patron: "indice_ocupacion_mensual*.csv"
   oferta:
     patron: "oferta_hotelera*.csv"
+  # --- Fuentes opcionales de la asignacion (si faltan, el tablero lo indica y sigue funcionando) ---
+  # Boletines anuales de ocupacion hotelera (PDF): se extrae, con codigo, el movimiento hotelero
+  # mensual del departamento por residencia (huespedes y noches). Esa desagregacion NO esta en el CSV
+  # de ocupacion; la ocupacion del boletin solo se usa para verificar el CSV.
+  boletines:
+    patron: "BOLETIN*OCUPACION*.pdf"
+    opcional: true
+  # Encuesta de perfil del visitante en puestos fronterizos (parquet sin extension). Solo se
+  # conservan agregados de quienes declaran como destino el lago; sin factor de expansion.
+  frontera:
+    patron: "BD_COMPLEMENTARIA*"
+    opcional: true
+    destino_declarado: "Lago Atitlán"
 
 # Valor de `pais` que identifica a los visitantes nacionales (incorporan factor de expansion)
 pais_nacional: Guatemala
