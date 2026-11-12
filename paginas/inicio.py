@@ -31,7 +31,8 @@ indicadores([
     {"etiqueta": "Estadía media ponderada", "valor": f"{k['estadia_media']:.2f} días", "contexto": "turistas con pernocta",
      "serie": k["serie_estadia"]},
     {"etiqueta": "Visitantes extranjeros", "valor": f"{k['pct_extranjeros']:.0%}", "contexto": "del total de visitantes"},
-    {"etiqueta": "Festividad de mayor impacto", "valor": lift["lift"].idxmax(), "contexto": f"Lift {lift['lift'].max():+.0%} frente a un día regular"},
+    {"etiqueta": "Festividad de mayor impacto", "valor": lift["lift"].idxmax() if len(lift) else "Sin dato",
+     "contexto": f"Lift {lift['lift'].max():+.0%} frente a un día regular" if len(lift) else "sin festividades en la base diaria"},
 ])
 
 c1, c2 = st.columns([1, 1], gap="small")

@@ -17,7 +17,7 @@ from src.graficas import (
     fig_ocupacion,
 )
 from src.normalizar import departamento
-from src.ui import aviso_sinteticos, barra_filtros, encabezado_pagina, indicadores, mosaico, nota, sin_datos
+from src.ui import aviso_sinteticos, barra_filtros, encabezado_pagina, grafica, indicadores, mosaico, nota, sin_datos
 
 DEPTO = departamento(CONFIG["destino"]["departamento"])
 oferta = tabla("oferta")
@@ -76,9 +76,9 @@ with c1, mosaico(
     "trimestre). Al hacer clic en un año, la gráfica de ocupación se enfoca en ese año. El corte 2026 (solo T1, "
     "levantamiento parcial) se muestra en el desglose por tipo, no aquí.",
     filtro=str(anio_sel) if anio_sel else None,
+    enlazada=True,
 ):
-    st.plotly_chart(fig_capacidad_anual(anual, medida, anio_sel), key="m3_cap_anual", on_select="rerun",
-                    selection_mode="points", width="stretch")
+    grafica(fig_capacidad_anual(anual, medida, anio_sel), "m3_cap_anual", enlazada=True)
 
 with c2, mosaico(
     "m3-ocup", "Tasa de ocupación mensual", f"{DEPTO} (verde azulado) frente a los demás departamentos (gris)", "observado",
@@ -95,17 +95,18 @@ with c2, mosaico(
         st.caption(f"{anio_sel}: ocupación promedio {oa.mean():.0%} con {formato_numero(anual.loc[anio_sel, 'plazas_cama'])} "
                    f"plazas cama; mes más lleno {MES_ES[oa.idxmax().month - 1]} ({oa.max():.0%}), más vacío "
                    f"{MES_ES[oa.idxmin().month - 1]} ({oa.min():.0%}).")
-    st.plotly_chart(fig, key="m3_ocup", width="stretch")
+    grafica(fig, "m3_ocup")
 
+parcial = cap[cap["corte_parcial"]]
+repite = f"el {parcial['repite_previo'].mean():.0%} de los tipos repite" if len(parcial) else "puede repetir"
 c3, c4 = st.columns([1.3, 1], gap="small")
 with c3, mosaico(
-    "m3-cap-tipo", "Capacidad por tipo de alojamiento", "Todos los cortes · trama: corte 2026-T1 parcial", "observado",
+    "m3-cap-tipo", "Capacidad por tipo de alojamiento", "Todos los cortes · trama: corte parcial", "observado",
     "**¿Qué tipo de alojamiento domina?**\n\nEl corte de 2026 es solo del primer trimestre (tres meses después del "
-    "anterior, no doce) y se levantó de forma parcial: cerca de la mitad de las combinaciones repite exactamente el "
-    "valor del año previo. Por eso se dibuja con trama y no entra al cálculo de crecimiento.",
+    f"anterior, no doce) y se levantó de forma parcial: {repite} exactamente el valor del año previo. Por eso se "
+    "dibuja con trama y no entra al cálculo de crecimiento.",
 ):
-    st.plotly_chart(fig_capacidad(cap, medida), key="m3_cap", width="stretch")
-    parcial = cap[cap["corte_parcial"]]
+    grafica(fig_capacidad(cap, medida), "m3_cap")
     if len(parcial):
         st.caption(f"Corte parcial: {parcial['repite_previo'].mean():.0%} de los tipos de alojamiento repiten el valor anterior.")
 
@@ -115,7 +116,7 @@ with c4, mosaico(
     "**Visualización adicional del grupo.** El mapa de calor deja ver de un vistazo la temporada alta (más oscuro) y "
     "baja, y si se repite cada año. Ayuda a planificar promoción en los meses valle.",
 ):
-    st.plotly_chart(fig_heatmap_ocupacion(matriz), key="m3_heat", width="stretch")
+    grafica(fig_heatmap_ocupacion(matriz), "m3_heat")
     perfil_mes = matriz.mean()
     st.caption(f"Meses más llenos en promedio: {', '.join(MES_ES[i - 1] for i in perfil_mes.nlargest(3).index)}. "
                f"Más vacíos: {', '.join(MES_ES[i - 1] for i in perfil_mes.nsmallest(3).index)}.")
@@ -129,12 +130,12 @@ with c5, mosaico(
     "- **Noches demandadas** = Σ días-persona de los turistas con pernocta (suma de los 10 municipios).\n"
     "- **Plazas-noche** = plazas cama del corte del año × días del mes.\n"
     "- **Tasa implícita** = noches demandadas / plazas-noche, comparable con la ocupación oficial.\n\n"
-    "Noches y porcentajes van en paneles separados. Solo 4 meses: la lectura es indicativa.",
+    f"Noches y porcentajes van en paneles separados. Solo {len(cruce)} meses: la lectura es indicativa.",
 ):
     if cruce.empty:
         sin_datos("Falta alguna de las dos series en la ventana coincidente.")
     else:
-        st.plotly_chart(fig_cruce_ventana(cruce), key="m3_ventana", width="stretch")
+        grafica(fig_cruce_ventana(cruce), "m3_ventana")
         with st.expander("Tabla de la ventana", icon=":material/table:"):
             tab = cruce.rename(index=lambda t: f"{MES_ES[t.month - 1]} {t.year}")
             st.dataframe(tab, width="stretch", column_config={
@@ -150,9 +151,15 @@ with c6, st.container(key="tile-m3-lectura"):
     if len(cruce):
         brecha = cruce["brecha"].mean()
         r = cruce["noches_demandadas"].corr(cruce["ocupacion_oficial"]) if len(cruce) >= 3 else float("nan")
+        if pd.isna(r):
+            juntas = f"Con {len(cruce)} meses no se puede medir si se mueven juntas."
+        elif r >= 0.5:
+            juntas = f"Ambas se mueven juntas (correlación {r:.2f}, {len(cruce)} meses)."
+        else:
+            juntas = f"No se mueven juntas (correlación {r:.2f}, {len(cruce)} meses)."
         nota("observado", f"Los turistas del lago demandan en promedio {formato_numero(cruce['noches_demandadas'].mean())} "
              f"noches al mes, el {cruce['tasa_implicita'].mean():.0%} de las plazas-noche formales de {DEPTO}; la ocupación "
-             f"oficial fue {cruce['ocupacion_oficial'].mean():.0%}. Ambas se mueven juntas (correlación {r:.2f}, 4 meses).")
+             f"oficial fue {cruce['ocupacion_oficial'].mean():.0%}. {juntas}")
         if brecha > 0:
             nota("interpretacion", "La tasa implícita **supera** a la oficial: parte de las noches ocurre fuera de la "
                  "hotelería formal registrada (plataformas digitales como Airbnb, casas de familia) o la suma de "
@@ -180,15 +187,19 @@ with c7, mosaico(
     col = "visitantes_mes" if base == "Visitantes" else "dias_persona_mes"
     if "Panajachel" in perfil.index and perfil.loc["Panajachel", col] > 0:
         rel = perfil[col] / perfil.loc["Panajachel", col] * 100
-        st.plotly_chart(fig_afluencia_relativa(rel), key="m3_sub", width="stretch")
+        grafica(fig_afluencia_relativa(rel), "m3_sub")
 with c8, st.container(key="tile-m3-sub-lectura"):
     st.html('<div class="ot-tt">Lectura territorial</div><div class="ot-ts">Dónde se concentra la carga</div>')
     perfil_todo = ind.por_municipio(m)
-    rel_v = perfil_todo["visitantes_mes"] / perfil_todo.loc["Panajachel", "visitantes_mes"] * 100
-    rel_n = perfil_todo["dias_persona_mes"] / perfil_todo.loc["Panajachel", "dias_persona_mes"] * 100
-    sube = (rel_n - rel_v).idxmax()
-    nota("observado", f"Fuera de Panajachel, **{corto(rel_v.drop('Panajachel').idxmax())}** es el municipio con más "
-         f"visitantes (índice {rel_v.drop('Panajachel').max():.0f}).")
-    nota("interpretacion", f"Al medir en días-persona, **{corto(sube)}** gana más peso relativo ({rel_v[sube]:.0f} → "
-         f"{rel_n[sube]:.0f}): recibe menos personas pero se quedan más noches, lo que presiona la oferta local de "
-         "alojamiento de forma distinta a las puertas de entrada (módulo 4).")
+    if "Panajachel" not in perfil_todo.index or len(perfil_todo) < 2:
+        sin_datos("Panajachel no aparece en la base mensual: no se puede calcular el índice de afluencia relativa.")
+    else:
+        rel_v = perfil_todo["visitantes_mes"] / perfil_todo.loc["Panajachel", "visitantes_mes"] * 100
+        rel_n = perfil_todo["dias_persona_mes"] / perfil_todo.loc["Panajachel", "dias_persona_mes"] * 100
+        sube = (rel_n - rel_v).idxmax()
+        nota("observado", f"Fuera de Panajachel, **{corto(rel_v.drop('Panajachel').idxmax())}** es el municipio con más "
+             f"visitantes (índice {rel_v.drop('Panajachel').max():.0f}).")
+        if rel_n[sube] > rel_v[sube]:
+            nota("interpretacion", f"Al medir en días-persona, **{corto(sube)}** gana más peso relativo ({rel_v[sube]:.0f} → "
+                 f"{rel_n[sube]:.0f}): recibe menos personas pero se quedan más noches, lo que presiona la oferta local de "
+                 "alojamiento de forma distinta a las puertas de entrada (módulo 4).")

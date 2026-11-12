@@ -8,6 +8,7 @@ Vista enlazada: un clic en un municipio del cuadrante abre su perfil y lo marca 
 
 from __future__ import annotations
 
+import pandas as pd
 import streamlit as st
 
 from src import indicadores as ind
@@ -19,7 +20,7 @@ from src.graficas import (
     fig_mercados_clase, fig_patron_semanal, fig_top_paises,
 )
 from src.normalizar import MUNICIPIOS
-from src.ui import aviso_sinteticos, barra_filtros, encabezado_pagina, indicadores, mosaico, nota
+from src.ui import aviso_sinteticos, barra_filtros, encabezado_pagina, grafica, indicadores, mosaico, nota
 
 m = tabla("mensual")
 d = tabla("diaria")
@@ -72,16 +73,18 @@ sel = next((p["customdata"][0] for p in puntos if p.get("customdata") and p["cus
 c1, c2 = st.columns([1.5, 1], gap="small")
 with c1, mosaico(
     "m4-cuadrante", "Cuadrante analítico de los municipios",
-    f"Volumen × estadía media · tamaño: % de extranjeros · color: clase ({metodo.lower()}) · clic para ver el perfil",
+    f"Volumen × estadía media · tamaño: % de extranjeros · color y forma: clase ({metodo.lower()}) · clic para ver el perfil",
     "interpretacion",
     "**¿Qué tipo de destino es cada pueblo?**\n\n- Eje X: visitantes promedio por mes (escala logarítmica).\n"
-    "- Eje Y: estadía media ponderada de los turistas con pernocta.\n- Tamaño: % de visitantes extranjeros.\n\n"
+    "- Eje Y: estadía media ponderada de los turistas con pernocta.\n- Tamaño: % de visitantes extranjeros.\n"
+    "- Color y forma: clase (círculo = hub, rombo = larga estancia, cuadrado = visita corta).\n\n"
     "Las líneas punteadas son las medianas del lago. **Regla:** hub comercial = volumen ≥ 60 % del mayor; larga "
     "estancia = estadía sobre la mediana y mayoría extranjera; visita corta = el resto. **k-medias** agrupa por "
     "parecido en volumen, estadía, % extranjeros y presión de fin de semana.",
     filtro=corto(sel) if sel else None,
+    enlazada=True,
 ):
-    st.plotly_chart(fig_cuadrante(perfil, sel), key="m4_cuadrante", on_select="rerun", selection_mode="points", width="stretch")
+    grafica(fig_cuadrante(perfil, sel), "m4_cuadrante", enlazada=True)
 
 with c2, st.container(key="tile-m4-clases"):
     st.html('<div class="ot-tt">Cómo es cada clase</div><div class="ot-ts">Promedio simple de sus municipios</div>')
@@ -101,7 +104,12 @@ with c2, st.container(key="tile-m4-clases"):
         nota("interpretacion", f"Los métodos difieren en {len(distintos)} municipio(s) — {detalle}. Son pueblos "
              "de transición entre dos clases: la matriz de perfiles muestra en qué indicador se parecen a cada una.")
     else:
-        nota("interpretacion", "Regla y k-medias coinciden en los 10 municipios: la clasificación es robusta.")
+        nota("interpretacion", f"Regla y k-medias coinciden en los {len(perfil)} municipios: la clasificación es robusta.")
+    estab = perfil.attrs.get("estabilidad_kmedias", float("nan"))
+    if pd.notna(estab):
+        nota("observado", f"Estabilidad de k-medias: al quitar un municipio a la vez y volver a agrupar, el {estab:.0%} "
+             "de los demás conserva su clase. "
+             + ("Los grupos son sólidos." if estab >= 0.8 else "Los grupos son frágiles: úselos solo como contraste de la regla."))
 
 # --- Matriz de perfiles y huella semanal -----------------------------------------------------------
 c3, c4 = st.columns([1.25, 1], gap="small")
@@ -112,15 +120,15 @@ with c3, mosaico(
     "variables de unidades distintas sin mezclarlas. La presión de fin de semana y el Lift vienen de la base diaria.",
     filtro=corto(sel) if sel else None,
 ):
-    st.plotly_chart(fig_matriz_perfiles(perfil, sel), key="m4_matriz", width="stretch")
+    grafica(fig_matriz_perfiles(perfil, sel), "m4_matriz")
 with c4, mosaico(
     "m4-huella", "Huella semanal de cada pueblo", "Índice por día (días regulares, promedio semanal = 100) · líneas: separación entre clases",
     "observado",
     "**¿Quién se llena el fin de semana?**\n\nBase diaria: rojo = por debajo del promedio de la semana, azul = por "
-    "encima. Los pueblos de visita corta dependen más del sábado y domingo (excursiones de nacionales); los de larga "
-    "estancia tienen una semana más pareja.",
+    "encima. Si la clasificación es correcta, los pueblos de visita corta dependen más del sábado y domingo "
+    "(excursiones) y los de larga estancia tienen una semana más pareja; los hallazgos al final lo comprueban.",
 ):
-    st.plotly_chart(fig_huella_semanal(te.huella_semanal(d), clases), key="m4_huella", width="stretch")
+    grafica(fig_huella_semanal(te.huella_semanal(d), clases), "m4_huella")
 
 # --- Comparacion entre clases ------------------------------------------------------------------------
 c5, c6 = st.columns(2, gap="small")
@@ -129,13 +137,13 @@ with c5, mosaico(
     "**¿Atraen las clases a mercados distintos?**\n\nPorcentaje de los extranjeros de cada clase que viene de cada uno "
     "de los 8 principales países del lago. Diferencias aquí orientan la promoción por mercado de cada tipo de pueblo.",
 ):
-    st.plotly_chart(fig_mercados_clase(te.mercados_por_clase(m, clases)), key="m4_mercados", width="stretch")
+    grafica(fig_mercados_clase(te.mercados_por_clase(m, clases)), "m4_mercados")
 with c6, mosaico(
     "m4-estac", "Estacionalidad por clase", "Índice mensual de visitantes (promedio de los meses observados = 100)", "observado",
     "**¿Tienen la misma temporada?**\n\nEs un índice de forma: aunque sumar municipios de una clase duplique visitantes, "
     "el patrón entre meses se conserva. Los meses sin cobertura de telefonía aparecen vacíos.",
 ):
-    st.plotly_chart(fig_estacionalidad_clase(te.estacionalidad_por_clase(m, clases)), key="m4_estac", width="stretch")
+    grafica(fig_estacionalidad_clase(te.estacionalidad_por_clase(m, clases)), "m4_estac")
 
 # --- Perfil del municipio elegido -------------------------------------------------------------------
 mun = sel or perfil["visitantes_mes"].idxmax()
@@ -156,15 +164,15 @@ indicadores([
 c7, c8, c9 = st.columns(3, gap="small")
 with c7, mosaico("m4-serie", "Visitantes por mes y origen", "Meses sin dato vacíos", "observado",
                  "Serie mensual del municipio, separando nacionales (con factor de expansión) y extranjeros.", filtro=corto(mun)):
-    st.plotly_chart(fig_mensual_origen(g), key="m4_serie", width="stretch")
+    grafica(fig_mensual_origen(g), "m4_serie")
 with c8, mosaico("m4-semana", "Patrón semanal", "Días regulares · promedio = 100", "observado",
                  "Índice de visitantes por día de la semana del municipio elegido (base diaria).", filtro=corto(mun)):
-    st.plotly_chart(fig_patron_semanal(ind.patron_semanal(ind.serie_diaria(gd))), key="m4_semana", width="stretch")
+    grafica(fig_patron_semanal(ind.patron_semanal(ind.serie_diaria(gd))), "m4_semana")
 with c9, mosaico("m4-paises", "Principales mercados extranjeros", "Top 8 del municipio", "observado",
                  "Mercados emisores extranjeros del municipio elegido.", filtro=corto(mun)):
     top = ind.top_paises(g, 8)
     if not top.empty:
-        st.plotly_chart(fig_top_paises(top), key="m4_paises", width="stretch")
+        grafica(fig_top_paises(top), "m4_paises")
 
 # --- Hallazgos ----------------------------------------------------------------------------------------
 with st.container(key="tile-m4-hallazgos"):
@@ -173,13 +181,22 @@ with st.container(key="tile-m4-hallazgos"):
     larga = por_clase.loc["Larga estancia"] if "Larga estancia" in por_clase.index else None
     corta = por_clase.loc["Visita corta"] if "Visita corta" in por_clase.index else None
     if hub is not None and larga is not None:
+        mas_noches = larga["estadia_media"] > hub["estadia_media"]
         nota("observado", f"Los pueblos de **larga estancia** reciben {larga['visitantes_mes'] / hub['visitantes_mes']:.0%} de "
              f"los visitantes del hub, pero cada turista se queda {larga['estadia_media']:.1f} días frente a "
-             f"{hub['estadia_media']:.1f}: generan muchas más noches por visitante.")
+             f"{hub['estadia_media']:.1f}" + (": generan más noches por visitante." if mas_noches else "."))
+    finde_corta = corta is not None and larga is not None and corta["presion_finde"] > larga["presion_finde"]
     if corta is not None and larga is not None:
-        nota("observado", f"Los de **visita corta** son {corta['pct_excursionistas']:.0%} excursionistas, mayoría nacional "
-             f"({1 - corta['pct_extranjeros']:.0%}), y en fin de semana reciben {corta['presion_finde']:.2f} veces un día "
-             f"hábil (larga estancia: {larga['presion_finde']:.2f}).")
-    nota("interpretacion", "Implicación para el INGUAT: la gestión de flujo (transporte lacustre, seguridad, servicios) "
-         "debe reforzarse los fines de semana y feriados en los pueblos de visita corta, mientras que la promoción "
-         "internacional de estadías largas tiene su mejor palanca en los pueblos de larga estancia.")
+        mezcla = (f"mayoría nacional ({1 - corta['pct_extranjeros']:.0%})" if corta["pct_extranjeros"] < 0.5
+                  else f"mayoría extranjera ({corta['pct_extranjeros']:.0%})")
+        nota("observado", f"Los de **visita corta** son {corta['pct_excursionistas']:.0%} excursionistas, {mezcla}, y en "
+             f"fin de semana reciben {corta['presion_finde']:.2f} veces un día hábil (larga estancia: "
+             f"{larga['presion_finde']:.2f}).")
+    if finde_corta:
+        nota("interpretacion", "Implicación para el INGUAT: la gestión de flujo (transporte lacustre, seguridad, servicios) "
+             "debe reforzarse los fines de semana y feriados en los pueblos de visita corta, mientras que la promoción "
+             "internacional de estadías largas tiene su mejor palanca en los pueblos de larga estancia.")
+    else:
+        nota("interpretacion", "Implicación para el INGUAT: los pueblos de visita corta no dependen más del fin de semana "
+             "que los de larga estancia; la gestión de flujo debe planificarse con el patrón semanal de cada pueblo y no "
+             "por clase.")

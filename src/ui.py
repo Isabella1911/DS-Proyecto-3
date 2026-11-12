@@ -28,6 +28,15 @@ FUENTE_DATOS = "Telefonía (movilidad), migración, ocupación y oferta hotelera
 
 MESES_CORTOS = ["ene", "feb", "mar", "abr", "may", "jun", "jul", "ago", "sep", "oct", "nov", "dic"]
 
+# Barra de Plotly igual en todas las graficas: solo "descargar imagen" (PNG). Sin zoom, paneo, lazo
+# ni seleccion por caja; la unica interaccion es el clic de las graficas enlazadas.
+CONFIG_PLOTLY = {
+    "displaylogo": False,
+    "modeBarButtons": [["toImage"]],
+    "toImageButtonOptions": {"format": "png", "scale": 2},
+    "scrollZoom": False,
+}
+
 _CSS = """
 <style>
 [data-testid="stMainBlockContainer"] { max-width: 1440px; padding: 1.25rem 2rem 3rem; }
@@ -54,6 +63,7 @@ _CSS = """
 [class*="st-key-tile-"] [data-testid="stPopover"] button { border: none; background: transparent; min-height: 1.75rem; padding: 0 .25rem; color: #525252; }
 [class*="st-key-tile-"] [data-testid="stPopover"] button:hover { background: #e8e8e8; color: #161616; }
 [class*="st-key-tile-"] [data-testid="stPopover"] button div[aria-hidden="true"] { display: none; }
+.ot-clic { color: #0f62fe; background: #ffffff; border: 1px solid #0f62fe; line-height: 1rem; }
 .ot-chip { font-size: .6875rem; line-height: 1.1rem; padding: 0 .5rem; background: #161616; color: #ffffff; white-space: nowrap; max-width: 22rem; overflow: hidden; text-overflow: ellipsis; }
 
 /* indicadores */
@@ -109,17 +119,27 @@ def _tag(tipo: str) -> str:
 
 
 @contextmanager
-def mosaico(clave: str, titulo: str, subtitulo: str, tipo: str, ayuda: str, filtro: str | None = None):
+def mosaico(clave: str, titulo: str, subtitulo: str, tipo: str, ayuda: str, filtro: str | None = None,
+            enlazada: bool = False):
     """Mosaico de una visualizacion: titulo, subtitulo con unidades y alcance, etiqueta de
-    tipo de dato, chip del filtro cruzado activo y la explicacion en un icono de informacion."""
+    tipo de dato, chip del filtro cruzado activo y la explicacion en un icono de informacion.
+    Las graficas que filtran a otras (enlazada=True) llevan la misma pista 'Clic para filtrar'."""
     with st.container(key=f"tile-{clave}"):
         izq, der, info = st.columns([0.62, 0.32, 0.06], vertical_alignment="top", gap="small")
         izq.html(f'<div class="ot-tt">{html.escape(titulo)}</div><div class="ot-ts">{subtitulo}</div>')
         chip = f'<span class="ot-chip" title="{html.escape(filtro)}">Filtrado por: {html.escape(filtro)}</span>' if filtro else ""
-        der.html(f'<div class="ot-tags">{chip}{_tag(tipo)}</div>')
+        clic = '<span class="ot-tag ot-clic" title="Haga clic en la gráfica para filtrar; doble clic para limpiar">Clic para filtrar</span>' if enlazada else ""
+        der.html(f'<div class="ot-tags">{chip}{clic}{_tag(tipo)}</div>')
         with info.popover("", icon=":material/info:", help="Acerca de esta gráfica"):
             st.markdown(ayuda)
         yield
+
+
+def grafica(fig, key: str, enlazada: bool = False):
+    """Muestra una figura con la barra de Plotly uniforme. Las enlazadas responden al clic en un punto
+    o barra (on_select) y devuelven la seleccion."""
+    extra = {"on_select": "rerun", "selection_mode": "points"} if enlazada else {}
+    return st.plotly_chart(fig, key=key, width="stretch", config=CONFIG_PLOTLY, **extra)
 
 
 def _sparkline(valores: list[float], ancho: int = 96, alto: int = 30) -> str:

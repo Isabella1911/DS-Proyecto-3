@@ -48,6 +48,9 @@ enableStaticServing = true
 
 [client]
 toolbarMode = "minimal"
+# Sin boton de descarga CSV ni copia en las tablas: aunque solo muestran agregados, ningun dato
+# sale del tablero en archivo (clausula de confidencialidad de la guia).
+disableDataExport = true
 
 [browser]
 gatherUsageStats = false

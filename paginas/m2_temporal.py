@@ -14,7 +14,7 @@ from src.estilo import formato_numero
 from src.graficas import (
     MES_ES, fig_lift, fig_mensual_estimada, fig_patron_semanal, fig_perfil_estacional, fig_serie_diaria, fig_validacion,
 )
-from src.ui import aviso_sinteticos, barra_filtros, encabezado_pagina, indicadores, mosaico, nota, sin_datos
+from src.ui import aviso_sinteticos, barra_filtros, encabezado_pagina, grafica, indicadores, mosaico, nota, sin_datos
 
 d_todo = tabla("diaria")
 m_todo = tabla("mensual")
@@ -89,15 +89,16 @@ with c1, mosaico(
     "La franja gris marca los días sin cobertura de telefonía (sin dato, no cero). Use la barra inferior para acercarse.",
     filtro=ev_sel,
 ):
-    st.plotly_chart(fig_serie_diaria(diaria, ev_sel), key="m2_diaria", width="stretch")
+    grafica(fig_serie_diaria(diaria, ev_sel), "m2_diaria")
 with c2, mosaico(
     "m2-lift", "Lift por festividad", f"{tipo_lift} · clic en una barra para verla en la serie diaria", "observado",
     "**¿Cuánto sube la afluencia en cada festividad?**\n\n"
     "Lift = (promedio de visitantes en los días del evento ÷ promedio de un día regular) − 1. "
     "Un +50 % significa que un día de esa festividad recibe la mitad más de visitantes que un día regular. "
     "El ajustado por día de semana evita atribuir al feriado el efecto de caer en sábado o domingo.",
+    enlazada=True,
 ):
-    st.plotly_chart(fig_lift(lift, col_lift, ev_sel), key="m2_lift_chart", on_select="rerun", selection_mode="points", width="stretch")
+    grafica(fig_lift(lift, col_lift, ev_sel), "m2_lift_chart", enlazada=True)
 
 # --- Patron semanal -------------------------------------------------------------------------------
 c3, c4 = st.columns([1, 1], gap="small")
@@ -109,7 +110,7 @@ with c3, mosaico(
 ):
     solo_reg = st.toggle("Solo días regulares (sin festividades)", value=True, key="m2_solo_reg")
     patron = patron_reg if solo_reg else ind.patron_semanal(diaria, solo_regulares=False)
-    st.plotly_chart(fig_patron_semanal(patron), key="m2_semana", width="stretch")
+    grafica(fig_patron_semanal(patron), "m2_semana")
 with c4, st.container(key="tile-m2-lectura"):
     st.html('<div class="ot-tt">Lectura de la dinámica</div><div class="ot-ts">Eventos y semana</div>')
     top_ev = lift[col_lift].idxmax()
@@ -118,8 +119,9 @@ with c4, st.container(key="tile-m2-lectura"):
          f"{presion:.2f} veces los visitantes de un día hábil.")
     negativos = lift.index[lift[col_lift] < 0].tolist()
     if negativos:
-        nota("interpretacion", f"{', '.join(negativos)} no atraen más visitantes que un día regular: son feriados "
-             "cortos que no alcanzan para un viaje al lago.")
+        nota("interpretacion", f"{', '.join(negativos)} no atraen más visitantes que un día regular: el feriado por sí "
+             "solo no mueve la demanda del lago (una explicación posible es que sean feriados de un día que no forman "
+             "fin de semana largo).")
     if es_suma:
         nota("interpretacion", "Con 'suma de municipios', un visitante que pasa el día en dos pueblos cuenta dos veces. "
              "El Lift no cambia mucho porque es un cociente, pero los volúmenes son una cota superior.")
@@ -156,7 +158,7 @@ with c5, mosaico(
     f"{anios_perfil[0]}–{anios_perfil[-1]}) escalado al nivel observado del destino.\n\n"
     "Por defecto se muestra el método con menor MAPE en la validación.",
 ):
-    st.plotly_chart(fig_mensual_estimada(obs, r.estimados), key="m2_estimacion", width="stretch")
+    grafica(fig_mensual_estimada(obs, r.estimados), "m2_estimacion")
     st.caption(f"Factor estimado: {r.factor:.4f} · método {metodo}. Las estimaciones no se mezclan con lo observado en los "
                "indicadores del módulo 1.")
 with c6, mosaico(
@@ -166,24 +168,35 @@ with c6, mosaico(
     "estima su valor; la diferencia con lo observado da el error. MAPE = promedio de |error| / observado; "
     "MAE = promedio de |error|; RMSE = raíz del promedio del error al cuadrado.",
 ):
-    st.plotly_chart(fig_validacion(r.validacion), key="m2_validacion", width="stretch")
+    grafica(fig_validacion(r.validacion), "m2_validacion")
     comp = {pr.METODOS[k].split(" ×")[0] + f" ({k})": f"{v.mape:.1f} %" for k, v in resultados.items()}
     st.caption("MAPE por método: " + " · ".join(f"{a}: {b}" for a, b in comp.items()))
 
+perfil = pr.perfil_estacional(mig, anios_perfil)
+meses_est = [int(p[-2:]) for p in faltantes]
+i0, i1 = (float(perfil.get(x, float("nan"))) for x in (meses_est[0], meses_est[-1]))
+lectura_perfil = (
+    f"Explica la forma de la estimación: {MES_ES[meses_est[0] - 1]} tiene un índice de {i0:.2f} y "
+    f"{MES_ES[meses_est[-1] - 1]} de {i1:.2f}, así que el método B estima "
+    + ("más visitantes en el primero." if i0 > i1 else "más visitantes en el segundo." if i1 > i0 else "lo mismo en ambos.")
+)
 c7, c8 = st.columns([1, 1.5], gap="small")
 with c7, mosaico(
     "m2-perfil", "Perfil estacional de las llegadas internacionales",
     f"Base de migración {anios_perfil[0]}–{anios_perfil[-1]} · violeta: meses que se estiman", "observado",
-    "**Visualización adicional del grupo.** Índice de cada mes frente al promedio de su año. Explica por qué la "
-    "estimación de enero queda por encima de la de febrero: enero es temporada alta de llegadas internacionales.",
+    "**Visualización adicional del grupo.** Índice de cada mes frente al promedio de su año (1 = mes promedio). "
+    + lectura_perfil,
 ):
-    perfil = pr.perfil_estacional(mig, anios_perfil)
-    st.plotly_chart(fig_perfil_estacional(perfil, [int(p[-2:]) for p in faltantes]), key="m2_perfil", width="stretch")
+    grafica(fig_perfil_estacional(perfil, meses_est), "m2_perfil")
 with c8, st.container(key="tile-m2-lectura-est"):
     st.html('<div class="ot-tt">Lectura de la estimación</div><div class="ot-ts">Supuestos y límites</div>')
     nota("estimacion", f"Con el método {metodo}, {nombre.lower() if es_suma else nombre} habría recibido "
          f"{formato_numero(r.estimados.iloc[0])} visitantes en enero y {formato_numero(r.estimados.iloc[-1])} en febrero "
          f"de 2026, con un error típico de validación de {r.mape:.1f} %.")
     nota("interpretacion", "Supuesto: la fracción de las llegadas internacionales que llega al lago es estable entre "
-         "meses. Para los nacionales es un supuesto más débil (no pasan por migración), por eso su error es mayor. "
-         "Como la telefonía no cubre ene-feb de ningún año, no hay comparación interanual directa 2025 vs 2026.")
+         "meses. Para los nacionales es un supuesto más débil, porque no pasan por migración: compare el MAPE al "
+         "filtrar por origen. Como la telefonía no cubre ene-feb de ningún año, no hay comparación interanual directa "
+         "2025 vs 2026.")
+    if r.mape > 20:
+        nota("interpretacion", f"El error de validación ({r.mape:.0f} %) es alto: presente la estimación como orden de "
+             "magnitud, no como cifra precisa.")
