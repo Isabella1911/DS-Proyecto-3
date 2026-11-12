@@ -65,7 +65,8 @@ python scripts/revisar_datos.py --esquema  # solo columnas, tipos y filas (sirve
 python scripts/generar_memoria.py          # regenera la memoria con las cifras reales (requiere pandoc)
 ```
 
-Ambos scripts imprimen solo agregados, nunca filas de las bases.
+Ambos scripts imprimen solo agregados, nunca filas de las bases. La memoria necesita además
+`pip install -r requirements-memoria.txt` y [pandoc](https://pandoc.org/installing.html).
 
 ## Estructura
 
