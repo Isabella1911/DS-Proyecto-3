@@ -17,7 +17,7 @@ visual, la paleta validada y la estimación con la base de migración de los Lab
 - Fabian Prado Dluzniewski
 - Luis Fernando Mendoza Alvarez
 
-## Estado (avance)
+## Estado
 
 | Módulo | Estado | Contenido |
 |---|---|---|
@@ -25,6 +25,12 @@ visual, la paleta validada y la estimación con la base de migración de los Lab
 | 2 · Dinámica temporal y pronóstico | ✅ Completo | Serie diaria con selector de festividad y Lift (simple y ajustado), patrón semanal, estimación ene–feb 2026 con dos métodos sobre migración, validación MAPE/MAE/RMSE. Gráfica de Lift enlazada a la serie diaria. |
 | 3 · Oferta hotelera | ✅ Completo | Capacidad instalada anual y por tipo (2026 parcial marcado), ocupación 2023–2025 y calendario de ocupación, ventana coincidente con noches demandadas vs. plazas-noche, afluencia relativa entre municipios. Clic en un año de capacidad → ocupación de ese año. |
 | 4 · Red de municipios | ✅ Completo | Cuadrante volumen × estadía × % extranjeros, clasificación por regla contrastada con k-medias, matriz de perfiles, huella semanal por pueblo, mercados y estacionalidad por clase, perfil del municipio y hallazgos. Clic en el cuadrante → perfil. |
+| Conclusiones | Completo | La historia de los cuatro módulos con cifras recalculadas, recomendaciones para el INGUAT y datos por incorporar. Cada módulo termina con un enlace al siguiente. |
+| Memoria técnica | Completa | [docs/memoria/Memoria_tecnica_Grupo3.docx](docs/memoria/Memoria_tecnica_Grupo3.docx), generada con `scripts/generar_memoria.py` (la versión del repositorio usa datos sintéticos). |
+
+Interfaz: cuatro gráficas enlazadas con la misma pista "Clic para filtrar", barra de Plotly uniforme (solo
+PNG), tablas sin descarga CSV, paleta con contraste 3:1 y segunda señal para daltonismo, diseño probado a
+375 px y 768 px, y mensaje "Preparando datos..." en la primera carga.
 
 ## Cómo correrlo
 
@@ -45,14 +51,27 @@ python -m venv .venv
 python scripts/generar_sinteticos.py                # datos de demostración
 python -m src.etl                                   # limpieza -> data/procesados/
 streamlit run app.py
-python -m pytest tests                              # 26 pruebas
+python -m pytest tests                              # 40 pruebas
 ```
+
+### Con las bases reales
+
+Quien tenga las bases las coloca en `data/raw/` con su nombre original (o indica la carpeta con `OBS_DATOS`). El
+tablero detecta que cambiaron los archivos y vuelve a correr el ETL solo. Antes de presentar:
+
+```bash
+python scripts/revisar_datos.py            # controles, cobertura y cifras de los textos de lectura; marca [REVISAR]
+python scripts/revisar_datos.py --esquema  # solo columnas, tipos y filas (sirve para fuentes nuevas)
+python scripts/generar_memoria.py          # regenera la memoria con las cifras reales (requiere pandoc)
+```
+
+Ambos scripts imprimen solo agregados, nunca filas de las bases.
 
 ## Estructura
 
 ```text
-app.py                     Navegación (Inicio, 4 módulos, Calidad, Acerca)
-paginas/                   Una página por módulo
+app.py                     Navegación (Inicio, 4 módulos, Conclusiones, Calidad, Acerca)
+paginas/                   Una página por módulo, más conclusiones, calidad y acerca
 src/
   normalizar.py            Limpieza de textos (municipios, países, departamentos), coma decimal y fechas
   etl.py                   Bases originales -> parquet limpios + reporte de calidad (calidad.json)
@@ -60,15 +79,19 @@ src/
   oferta.py                Capacidad, ocupación y cruce noches demandadas vs. plazas (módulo 3)
   territorio.py            Perfiles de los 10 municipios, regla del cuadrante y k-medias (módulo 4)
   pronostico.py            Estimación ene–feb 2026 (factor de reparto / perfil estacional) y validación
+  hallazgos.py             Cifras clave de los 4 módulos (conclusiones, revisión y memoria)
   graficas.py              Figuras Plotly
   estilo.py, ui.py         Paleta y componentes de interfaz (heredados del Lab 10)
-  datos.py                 Carga con caché para el tablero
+  datos.py                 Carga con caché y reproceso al cambiar los archivos de entrada
 scripts/generar_sinteticos.py   Datos sintéticos con la estructura exacta de las 5 bases
+scripts/revisar_datos.py        Revisión de las bases reales antes de presentar
+scripts/generar_memoria.py      Memoria técnica en DOCX con las cifras vigentes
 config/config.yaml         Rutas, patrones de archivo, meses a estimar, ventana coincidente
 tests/                     Reglas metodológicas y pruebas de humo de todas las páginas
 data/                      (no versionada) raw/, sinteticos/, procesados/
 docs/avances.md            Resumen del avance para la presentación
 docs/normalizacion.md      Guía del proceso de normalización por tabla
+docs/memoria/              Plantilla, fichas de indicadores y la memoria técnica (DOCX)
 ```
 
 ## Reglas metodológicas implementadas

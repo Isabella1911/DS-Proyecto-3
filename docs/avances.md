@@ -74,11 +74,25 @@ tilde (`SOLOLA`), coma decimal (`2,55`), fechas de Excel o texto, valores de seg
 - **Enlace**: clic en un municipio del cuadrante → perfil (serie por origen, patrón semanal, mercados).
 - **Hallazgos** calculados con los datos cargados e implicaciones para el INGUAT.
 
-## 7. Pendiente para la entrega final
+## 7. Cierre del proyecto
 
-1. Correr con las bases reales y revisar el reporte de calidad (nombres no reconocidos, coberturas) y los
-   textos de lectura, que se calculan solos pero conviene validar con los números reales.
-2. Memoria técnica: fichas de indicadores (8 campos), investigación sobre observatorios (INSTO/SEGITTUR),
-   supuestos, recomendaciones para el INGUAT.
-3. Opcional: integrar los boletines de ocupación (PDF) y la BD complementaria si aportan al reto.
-4. Repositorio privado con catedráticos y auxiliares como colaboradores.
+Hecho:
+
+- `src/oferta.py` y `src/territorio.py` (no estaban en el repositorio; los módulos 3 y 4 fallaban al clonar).
+- El tablero reprocesa solo cuando cambian los archivos de entrada: basta con colocar las bases reales en `data/raw/`.
+- `scripts/revisar_datos.py`: controles, cobertura y las cifras de cada texto de lectura, con avisos `[REVISAR]`
+  donde una frase podría no cuadrar. Probado con la base de migración real.
+- Textos de lectura condicionados a los datos (ya no afirman una dirección fija).
+- Página de Conclusiones y enlace "Siguiente" al final de cada módulo.
+- Interfaz: pista "Clic para filtrar" uniforme, barra de Plotly solo con PNG, sin zoom, tablas sin descarga CSV,
+  diseño responsivo (375 y 768 px), mensaje "Preparando datos...", paleta con contraste 3:1 y segunda señal para
+  daltonismo, explicada en Acerca. El tema claro es fijo (no hay modo oscuro que revisar).
+- Memoria técnica en `docs/memoria/`, generada con `scripts/generar_memoria.py`.
+
+Pendiente:
+
+1. Quien tenga las bases reales: colocarlas en `data/raw/`, correr `python scripts/revisar_datos.py`, revisar los
+   `[REVISAR]` y la página Calidad, y regenerar la memoria con `python scripts/generar_memoria.py`.
+2. Dueña del repositorio: agregar a catedráticos y auxiliares como colaboradores (el repositorio ya es privado).
+3. Opcional: la BD complementaria y los boletines de ocupación (PDF). Con `python scripts/revisar_datos.py --esquema`
+   se obtienen sus columnas sin exponer filas, para integrarlos al módulo 3 con datos sintéticos de la misma forma.
