@@ -107,6 +107,19 @@ def aplicar_estilo(fig: go.Figure, alto: int = 420) -> go.Figure:
 MESES = ["Ene", "Feb", "Mar", "Abr", "May", "Jun", "Jul", "Ago", "Sep", "Oct", "Nov", "Dic"]
 
 
+def contraste(color: str, fondo: str = SUPERFICIE) -> float:
+    """Razon de contraste WCAG 2.x entre dos colores hex (1 = igual, 21 = negro sobre blanco).
+
+    WCAG pide al menos 3:1 para marcas graficas (1.4.11) y 4.5:1 para texto normal (1.4.3)."""
+    def luminancia(h: str) -> float:
+        h = h.lstrip("#")
+        c = [int(h[i:i + 2], 16) / 255 for i in (0, 2, 4)]
+        c = [x / 12.92 if x <= 0.04045 else ((x + 0.055) / 1.055) ** 2.4 for x in c]
+        return 0.2126 * c[0] + 0.7152 * c[1] + 0.0722 * c[2]
+    a, b = sorted([luminancia(color), luminancia(fondo)], reverse=True)
+    return (a + 0.05) / (b + 0.05)
+
+
 def formato_numero(valor: float) -> str:
     """12345678 -> '12.3 M'; 45678 -> '45.7 mil'."""
     if abs(valor) >= 1_000_000:
