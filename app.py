@@ -6,6 +6,7 @@ Ejecutar:
 
 import streamlit as st
 
+from src.datos import preparar
 from src.ui import FUENTE_DATOS, estilo_global
 
 st.set_page_config(
@@ -15,6 +16,7 @@ st.set_page_config(
 )
 st.logo("static/logo.svg", icon_image="static/icono.svg", size="large")
 estilo_global()
+preparar()
 
 paginas = st.navigation(
     {
