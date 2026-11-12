@@ -28,6 +28,7 @@ paginas = st.navigation(
             st.Page("paginas/m2_temporal.py", title="2 · Dinámica temporal y pronóstico", icon=":material/calendar_month:"),
             st.Page("paginas/m3_oferta.py", title="3 · Oferta hotelera", icon=":material/hotel:"),
             st.Page("paginas/m4_municipios.py", title="4 · Red de municipios", icon=":material/hub:"),
+            st.Page("paginas/conclusiones.py", title="Conclusiones", icon=":material/flag:"),
         ],
         "Metodología": [
             st.Page("paginas/calidad.py", title="Calidad de los datos", icon=":material/fact_check:"),

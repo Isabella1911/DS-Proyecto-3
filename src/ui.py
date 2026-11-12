@@ -84,6 +84,10 @@ _CSS = """
 [class*="st-key-nota-"] p { font-size: .8125rem; color: #393939; line-height: 1.5; margin-bottom: .2rem; }
 .ot-nl { font-size: .6875rem; color: #6f6f6f; margin-bottom: .1rem; }
 
+/* enlace al modulo siguiente */
+[class*="st-key-siguiente-"] { background: #ffffff; border: 1px solid #e0e0e0; border-left: 3px solid #0f62fe; padding: .75rem 1rem !important; gap: .25rem; margin-top: .5rem; }
+.ot-sig { font-size: .875rem; color: #393939; line-height: 1.5; }
+
 /* accesos de la portada */
 [class*="st-key-acceso-"] { background: #ffffff; border: 1px solid #e0e0e0; padding: 1rem !important; min-height: 10.5rem; justify-content: space-between; }
 .ot-acc-t { font-size: 1rem; font-weight: 600; color: #161616; }
@@ -236,6 +240,18 @@ def encabezado_con_vista(seccion: str, titulo: str, descripcion: str | None, met
     if not visibles:
         st.info("Todas las gráficas están ocultas. Actívelas desde **Personalizar vista**.", icon=":material/visibility_off:")
     return visibles
+
+
+def siguiente(pagina: str, titulo: str, puente: str, icono: str = ":material/arrow_forward:") -> None:
+    """Cierre de un modulo: una frase que conecta con la pregunta del siguiente y el enlace a el.
+
+    Si la pagina corre sola (pruebas de una pagina sin app.py) el enlace no existe y se muestra solo el texto."""
+    with st.container(key=f"siguiente-{_clave(pagina)}"):
+        st.html(f'<div class="ot-nl">Siguiente</div><div class="ot-sig">{puente}</div>')
+        try:
+            st.page_link(pagina, label=titulo, icon=icono)
+        except st.errors.StreamlitAPIException:
+            st.markdown(f"**{titulo}**")
 
 
 def sin_datos(mensaje: str) -> None:

@@ -8,8 +8,10 @@ import pytest
 from streamlit.testing.v1 import AppTest
 
 ROOT = Path(__file__).resolve().parent.parent
-# inicio.py usa st.page_link y solo corre dentro de app.py (lo cubre test_app_navegacion)
-PAGINAS = sorted(str(p.relative_to(ROOT)) for p in (ROOT / "paginas").glob("*.py") if p.name != "inicio.py")
+# inicio.py y conclusiones.py usan st.page_link y solo corren dentro de app.py (los cubre test_navegacion_por_pagina)
+SOLO_EN_APP = {"inicio.py", "conclusiones.py"}
+PAGINAS = sorted(str(p.relative_to(ROOT)) for p in (ROOT / "paginas").glob("*.py") if p.name not in SOLO_EN_APP)
+TODAS = sorted(str(p.relative_to(ROOT)) for p in (ROOT / "paginas").glob("*.py"))
 
 
 def correr(pagina: str) -> AppTest:
@@ -21,6 +23,15 @@ def correr(pagina: str) -> AppTest:
 @pytest.mark.parametrize("pagina", PAGINAS)
 def test_pagina_sin_errores(pagina):
     at = correr(pagina)
+    assert not at.exception, at.exception
+
+
+@pytest.mark.parametrize("pagina", TODAS)
+def test_navegacion_por_pagina(pagina):
+    """Cada pagina abierta desde app.py, con sus enlaces al modulo siguiente resueltos."""
+    at = AppTest.from_file(str(ROOT / "app.py"), default_timeout=120)
+    at.run()
+    at.switch_page(pagina).run()
     assert not at.exception, at.exception
 
 

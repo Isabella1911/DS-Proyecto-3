@@ -14,7 +14,7 @@ from src.estilo import formato_numero
 from src.graficas import (
     MES_ES, fig_lift, fig_mensual_estimada, fig_patron_semanal, fig_perfil_estacional, fig_serie_diaria, fig_validacion,
 )
-from src.ui import aviso_sinteticos, barra_filtros, encabezado_pagina, grafica, indicadores, mosaico, nota, sin_datos
+from src.ui import aviso_sinteticos, barra_filtros, encabezado_pagina, grafica, indicadores, mosaico, nota, siguiente, sin_datos
 
 d_todo = tabla("diaria")
 m_todo = tabla("mensual")
@@ -200,3 +200,11 @@ with c8, st.container(key="tile-m2-lectura-est"):
     if r.mape > 20:
         nota("interpretacion", f"El error de validación ({r.mape:.0f} %) es alto: presente la estimación como orden de "
              "magnitud, no como cifra precisa.")
+
+# --- Hilo hacia el siguiente modulo --------------------------------------------------------------
+siguiente(
+    "paginas/m3_oferta.py", "Módulo 3 · Oferta hotelera",
+    "Con los picos identificados, la pregunta es si <b>alcanza la capacidad hotelera</b> de Sololá para las "
+    "noches que se demandan. El módulo 3 cruza la oferta formal con la demanda de noches.",
+    ":material/hotel:",
+)

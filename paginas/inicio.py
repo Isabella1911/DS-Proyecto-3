@@ -58,6 +58,7 @@ ACCESOS = [
     ("paginas/m2_temporal.py", "2 · Dinámica temporal", "Serie diaria, Lift de festividades, patrón semanal y estimación ene-feb 2026.", ":material/calendar_month:"),
     ("paginas/m3_oferta.py", "3 · Oferta hotelera", "Capacidad, ocupación, noches demandadas vs. plazas y reparto entre municipios.", ":material/hotel:"),
     ("paginas/m4_municipios.py", "4 · Red de municipios", "Hubs, larga estancia y visita corta: cuadrante, k-medias y dinámica de cada pueblo.", ":material/hub:"),
+    ("paginas/conclusiones.py", "Conclusiones", "La historia de los cuatro módulos y recomendaciones para el INGUAT.", ":material/flag:"),
 ]
 cols = st.columns(len(ACCESOS), gap="small")
 for i, (col, (pagina, titulo, desc, icono)) in enumerate(zip(cols, ACCESOS)):

@@ -17,7 +17,7 @@ from src.graficas import (
     fig_ocupacion,
 )
 from src.normalizar import departamento
-from src.ui import aviso_sinteticos, barra_filtros, encabezado_pagina, grafica, indicadores, mosaico, nota, sin_datos
+from src.ui import aviso_sinteticos, barra_filtros, encabezado_pagina, grafica, indicadores, mosaico, nota, siguiente, sin_datos
 
 DEPTO = departamento(CONFIG["destino"]["departamento"])
 oferta = tabla("oferta")
@@ -203,3 +203,11 @@ with c8, st.container(key="tile-m3-sub-lectura"):
             nota("interpretacion", f"Al medir en días-persona, **{corto(sube)}** gana más peso relativo ({rel_v[sube]:.0f} → "
                  f"{rel_n[sube]:.0f}): recibe menos personas pero se quedan más noches, lo que presiona la oferta local de "
                  "alojamiento de forma distinta a las puertas de entrada (módulo 4).")
+
+# --- Hilo hacia el siguiente modulo --------------------------------------------------------------
+siguiente(
+    "paginas/m4_municipios.py", "Módulo 4 · Red de municipios",
+    "La carga de visitantes y noches no se reparte igual entre pueblos. El módulo 4 clasifica a los 10 "
+    "municipios según <b>el papel que juegan</b> en la red del lago.",
+    ":material/hub:",
+)

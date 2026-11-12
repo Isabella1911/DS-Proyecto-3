@@ -20,7 +20,7 @@ from src.graficas import (
     fig_mercados_clase, fig_patron_semanal, fig_top_paises,
 )
 from src.normalizar import MUNICIPIOS
-from src.ui import aviso_sinteticos, barra_filtros, encabezado_pagina, grafica, indicadores, mosaico, nota
+from src.ui import aviso_sinteticos, barra_filtros, encabezado_pagina, grafica, indicadores, mosaico, nota, siguiente
 
 m = tabla("mensual")
 d = tabla("diaria")
@@ -200,3 +200,11 @@ with st.container(key="tile-m4-hallazgos"):
         nota("interpretacion", "Implicación para el INGUAT: los pueblos de visita corta no dependen más del fin de semana "
              "que los de larga estancia; la gestión de flujo debe planificarse con el patrón semanal de cada pueblo y no "
              "por clase.")
+
+# --- Hilo hacia el siguiente modulo --------------------------------------------------------------
+siguiente(
+    "paginas/conclusiones.py", "Conclusiones",
+    "Con el papel de cada pueblo claro, la página de conclusiones <b>une los cuatro módulos</b> y propone "
+    "acciones para el INGUAT.",
+    ":material/flag:",
+)

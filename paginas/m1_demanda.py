@@ -13,7 +13,7 @@ from src.datos import corto, origenes, tabla
 from src.estilo import formato_numero
 from src.graficas import MES_ES, fig_estadia_paises, fig_municipios, fig_segmentacion, fig_top_paises
 from src.normalizar import MUNICIPIOS
-from src.ui import aviso_sinteticos, barra_filtros, encabezado_pagina, grafica, indicadores, mosaico, nota, sin_datos
+from src.ui import aviso_sinteticos, barra_filtros, encabezado_pagina, grafica, indicadores, mosaico, nota, siguiente, sin_datos
 
 m_todo = tabla("mensual")
 periodos = sorted(m_todo["periodo"].unique())
@@ -169,3 +169,12 @@ with c4, st.container(key="tile-m1-lectura"):
                            "Días-persona/mes": st.column_config.NumberColumn(format="localized")},
             width="stretch",
         )
+
+# --- Hilo hacia el siguiente modulo --------------------------------------------------------------
+siguiente(
+    "paginas/m2_temporal.py", "Módulo 2 · Dinámica temporal y pronóstico",
+    "Ya se sabe cuántos visitantes llegan y de dónde. La siguiente pregunta es <b>cuándo</b>: qué días y "
+    "festividades llenan el lago y cuántos visitantes hubo en enero y febrero de 2026, los meses sin "
+    "telefonía.",
+    ":material/calendar_month:",
+)
