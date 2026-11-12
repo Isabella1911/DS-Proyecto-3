@@ -89,10 +89,20 @@ Hecho:
   daltonismo, explicada en Acerca. El tema claro es fijo (no hay modo oscuro que revisar).
 - Memoria técnica en `docs/memoria/`, generada con `scripts/generar_memoria.py`.
 
+Cierre con las bases reales (12/11/2026):
+
+- ETL corrido con las 5 bases reales más las dos opcionales. El patrón de archivo se corrigió para el nombre oficial
+  `BD_moviidad_*.xlsx` (con errata), que antes no se encontraba.
+- **% de extranjeros sustituido** por el índice de especialización extranjera (IEE): la guía de uso prohíbe dividir
+  extranjeros entre el total. La regla del cuadrante se ajustó (larga estancia = estadía ≥ P75 e IEE ≥ 1), porque
+  con datos reales la condición "mayoría extranjera" dejaba la clase vacía.
+- **Tasa implícita sustituida** por la captación formal por origen (boletines × telefonía); con datos reales la tasa
+  implícita daba 578 %.
+- Boletines PDF: 36 meses extraídos con código; su ocupación coincide con el CSV en 36 de 36.
+- BD complementaria: alojamiento y puerta de ingreso declarados por quienes van al lago (solo agregados).
+- Mapa animado del peso de cada pueblo, verificación de la estimación con la base diaria e indicador de cobertura.
+- Memoria regenerada con cifras reales; guion de la demo en `docs/guion_presentacion.md`.
+
 Pendiente:
 
-1. Quien tenga las bases reales: colocarlas en `data/raw/`, correr `python scripts/revisar_datos.py`, revisar los
-   `[REVISAR]` y la página Calidad, y regenerar la memoria con `python scripts/generar_memoria.py`.
-2. Dueña del repositorio: agregar a catedráticos y auxiliares como colaboradores (el repositorio ya es privado).
-3. Opcional: la BD complementaria y los boletines de ocupación (PDF). Con `python scripts/revisar_datos.py --esquema`
-   se obtienen sus columnas sin exponer filas, para integrarlos al módulo 3 con datos sintéticos de la misma forma.
+1. Dueña del repositorio: confirmar que catedráticos y auxiliares estén invitados como colaboradores (repositorio privado).

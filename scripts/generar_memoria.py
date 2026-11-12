@@ -39,7 +39,7 @@ from src.estilo import (  # noqa: E402
     COLORES_ORIGEN, COLORES_SEGMENTO, contraste, formato_numero,
 )
 from src.graficas import fig_cuadrante, fig_mensual_estimada  # noqa: E402
-from src.normalizar import MUNICIPIO_CORTO, departamento  # noqa: E402
+from src.normalizar import MUNICIPIO_CORTO  # noqa: E402
 
 MEMORIA = RAIZ / "docs" / "memoria"
 BUILD = MEMORIA / "_build"
@@ -56,6 +56,10 @@ EQUIPO = [
 
 def pct(x: float) -> str:
     return "Sin dato" if pd.isna(x) else f"{x:.0%}"
+
+
+def pct1(x: float | None) -> str:
+    return "Sin dato" if x is None or pd.isna(x) else f"{x:.1%}"
 
 
 def num(x: float) -> str:
@@ -98,15 +102,15 @@ def fig_arquitectura(ruta: Path) -> None:
             ax.text((x0 + x1) / 2, (y0 + y1) / 2 + 1.2, texto, ha="center", fontsize=7.5, color=color)
 
     ax.text(0, 60, "Flujo de datos", fontsize=10, fontweight="bold", color="#161616")
-    caja(0, 44, 18, 12, "data/raw\n(reales, solo lectura)\no data/sinteticos")
+    caja(0, 44, 18, 12, "data/raw: 5 bases +\nboletines PDF + BD\ncomplementaria")
     caja(23, 44, 18, 12, "src/normalizar.py\ntextos, números\ny fechas")
     caja(46, 44, 18, 12, "src/etl.py\ncontroles +\ncalidad.json")
-    caja(69, 44, 18, 12, "data/procesados\n5 tablas parquet")
+    caja(69, 44, 18, 12, "data/procesados\n7 tablas parquet")
     caja(92, 44, 18, 12, "Tablero Streamlit\n+ Plotly", borde=COLOR_DESTACADO, negrita=True)
     for x in (18, 41, 64, 87):
         flecha(x, 50, x + 5, 50)
 
-    ax.text(0, 37, "Cómo se relacionan las cinco bases", fontsize=10, fontweight="bold", color="#161616")
+    ax.text(0, 37, "Cómo se relacionan las bases", fontsize=10, fontweight="bold", color="#161616")
     caja(36, 16, 26, 12, "Movilidad mensual\nmunicipio x mes x país x segmento", borde=COLOR_REAL, negrita=True)
     caja(0, 26, 24, 9, "Migración\nmes (llegadas internacionales)")
     caja(0, 2, 24, 9, "Movilidad diaria\nmunicipio x día x país")
@@ -115,7 +119,11 @@ def fig_arquitectura(ruta: Path) -> None:
     flecha(36, 25, 24, 30, "periodo: factor de reparto")
     flecha(36, 19, 24, 7, "municipio: fin de semana, festividades")
     flecha(62, 25, 76, 30, "periodo: ventana sep-dic 2025")
-    flecha(62, 19, 76, 7, "año: plazas-noche")
+    flecha(62, 19, 76, 7, "año: inventario")
+    caja(40, 0, 20, 9, "Boletines (PDF)\ndepto x mes x residencia", borde=COLOR_OCUPACION)
+    caja(40, 30, 20, 7, "Encuesta fronteras\ndestino declarado")
+    flecha(60, 4, 76, 4, "verifica ocupación", color=COLOR_OCUPACION)
+    flecha(50, 9, 50, 16, "mes x origen", color=COLOR_OCUPACION)
     flecha(88, 26, 88, 11, "departamento", color=COLOR_OCUPACION)
     fig.savefig(ruta, dpi=200, bbox_inches="tight", facecolor="white")
     plt.close(fig)
@@ -125,7 +133,7 @@ def figuras(t: dict, r: dict) -> dict[str, str]:
     BUILD.mkdir(parents=True, exist_ok=True)
     fig_arquitectura(BUILD / "arquitectura.png")
     perfil = r["territorio"]["perfil"].assign(clase=lambda p: p["clase_regla"])
-    fig_cuadrante(perfil, None).update_layout(width=1000, height=520, paper_bgcolor="white") \
+    fig_cuadrante(perfil, None, r["territorio"]["cortes"]).update_layout(width=1000, height=520, paper_bgcolor="white") \
         .write_image(BUILD / "cuadrante.png", scale=2)
     est = r["temporal"]
     faltantes = etl.CONFIG["estimacion"]["meses_sin_cobertura"]
@@ -171,7 +179,7 @@ def tabla_municipios(p: pd.DataFrame) -> str:
         "Municipio": [MUNICIPIO_CORTO.get(x, x) for x in t.index],
         "Visitantes/mes": t["visitantes_mes"].map(num),
         "Estadía (días)": t["estadia_media"].map(lambda v: f"{v:.2f}"),
-        "Extranjeros": t["pct_extranjeros"].map(pct),
+        "IEE": t["iee"].map(lambda v: f"{v:.2f}"),
         "Excursionistas": t["pct_excursionistas"].map(pct),
         "Presión finde": t["presion_finde"].map(lambda v: f"{v:.2f}"),
         "Regla": t["clase_regla"],
@@ -187,7 +195,7 @@ def tabla_clases(r: dict) -> str:
         "Municipios": [lista(r["miembros"][c]) for c in pc.index],
         "Visitantes/mes": pc["visitantes_mes"].map(num),
         "Estadía": pc["estadia_media"].map(lambda v: f"{v:.1f} días"),
-        "Extranjeros": pc["pct_extranjeros"].map(pct),
+        "IEE": pc["iee"].map(lambda v: f"{v:.2f}"),
         "Excursionistas": pc["pct_excursionistas"].map(pct),
         "Presión finde": pc["presion_finde"].map(lambda v: f"{v:.2f}"),
     })
@@ -231,7 +239,12 @@ def codigo(funcion) -> str:
 
 
 def valores(t: dict, r: dict, cal: dict, figs: dict) -> dict[str, str]:
-    dm, tp, ofe, tr = r["demanda"], r["temporal"], r["oferta"], r["territorio"]
+    dm, tp, ofe, tr, fr = r["demanda"], r["temporal"], r["oferta"], r["territorio"], r["frontera"]
+    fr_total = int(cal["fuentes"].get("frontera", {}).get("filas_leidas", 0))
+    faltantes = etl.CONFIG["estimacion"]["meses_sin_cobertura"]
+    obs = ind.serie_mensual(t["mensual"])
+    cons = pr.consistencia_diaria(obs.reindex(ind.calendario(obs.index, faltantes)), ind.serie_diaria(t["diaria"]),
+                                  tp["estimados"])
     pc, p = tr["por_clase"], tr["perfil"]
     clase = lambda c, col: pc.loc[c, col] if c in pc.index else float("nan")  # noqa: E731
     est = tp["estimados"]
@@ -244,18 +257,13 @@ def valores(t: dict, r: dict, cal: dict, figs: dict) -> dict[str, str]:
     titulo_h1 = (f"La demanda se concentra en {hub_l}, pero las estancias largas están en otros pueblos."
                  if clase("Larga estancia", "estadia_media") > clase("Hub comercial", "estadia_media")
                  else f"La demanda y las estancias se concentran en {hub_l}.")
-    saturada = ofe.get("ocupacion_oficial", 0) >= 0.7
-    titulo_h3 = ("La capacidad formal está cerca de su límite." if saturada
-                 else "La capacidad formal no está saturada en promedio.")
-    cierre_h3 = ("La presión sobre la capacidad es sostenida." if saturada
-                 else "La presión es puntual (festividades y fines de semana), no permanente.")
     titulo_h4 = (f"{dm['mercado_lider']} es el primer mercado extranjero ({pct(dm['pct_mercado_lider'])}), pero "
                  f"{dm['mercado_estadia']} es el que más se queda ({dm['estadia_mercado_max']:.1f} días)."
                  if dm["mercado_estadia"] != dm["mercado_lider"] else
                  f"{dm['mercado_lider']} es a la vez el primer mercado extranjero ({pct(dm['pct_mercado_lider'])}) y el "
                  f"de estadía más larga ({dm['estadia_mercado_max']:.1f} días).")
     return {
-        "titulo_h1": titulo_h1, "titulo_h3": titulo_h3, "cierre_h3": cierre_h3, "titulo_h4": titulo_h4,
+        "titulo_h1": titulo_h1, "titulo_h4": titulo_h4,
         "aviso_datos": aviso(cal["fuentes"]),
         "periodo": f"{MESES[p0.month - 1]} de {p0.year} a {MESES[p1.month - 1]} de {p1.year}",
         "meses": str(dm["meses"]),
@@ -263,11 +271,24 @@ def valores(t: dict, r: dict, cal: dict, figs: dict) -> dict[str, str]:
         "corta_lista": lista(tr["miembros"]["Visita corta"]),
         "hub_vis": num(clase("Hub comercial", "visitantes_mes")),
         "hub_est": f"{clase('Hub comercial', 'estadia_media'):.1f}",
-        "larga_est": f"{clase('Larga estancia', 'estadia_media'):.1f}", "larga_ext": pct(clase("Larga estancia", "pct_extranjeros")),
+        "larga_est": f"{clase('Larga estancia', 'estadia_media'):.1f}", "larga_iee": f"{clase('Larga estancia', 'iee'):.2f}",
+        "presion_hub": f"{clase('Hub comercial', 'presion_finde'):.2f}",
+        "iee_max": f"{tr['iee_max']:.2f}", "estadia_mun_iee": f"{tr['estadia_mun_iee']:.1f}",
+        "p75_estadia": f"{tr['cortes']['estadia_larga']:.2f}",
+        "capt_ext": pct1(ofe.get("captacion_ext")), "capt_nac": pct1(ofe.get("captacion_nac")),
+        "r_ext": f"{ofe.get('correlacion_ext', float('nan')):.2f}", "r_nac": f"{ofe.get('correlacion_nac', float('nan')):.2f}",
+        "noches_tel_ext": num(ofe.get("noches_tel_ext", float("nan"))), "noches_hotel_ext": num(ofe.get("noches_hotel_ext", float("nan"))),
+        "valle_mes": MESES[ofe["mes_valle_tipico"] - 1] if ofe else "Sin dato",
+        "valle_ocup": pct(ofe.get("ocupacion_valle_tipico", float("nan"))),
+        "fr_ola": fr.get("ola", "Sin dato"), "fr_n": f"{fr.get('encuestas', 0):,}", "fr_total": f"{fr_total:,}",
+        "fr_hotel": pct(fr.get("pct_hotel", float("nan"))), "fr_airbnb": pct(fr.get("pct_airbnb", float("nan"))),
+        "fr_airbnb_min": pct(fr.get("airbnb_min", float("nan"))), "fr_airbnb_max": pct(fr.get("airbnb_max", float("nan"))),
+        "fr_puesto": fr.get("puesto_top", "Sin dato"), "fr_puesto_pct": pct(fr.get("pct_puesto_top", float("nan"))),
+        "rot_media": f"{cons.attrs.get('rotacion_media', float('nan')):.1f}",
+        "rot_cv": pct(cons.attrs.get("rotacion_cv", float("nan"))),
         "evento_top": tp["evento_top"] or "Sin dato", "lift_top": f"{tp['lift_top']:+.0%}",
         "lift_aj_top": f"{tp['lift_ajustado_top']:+.0%}", "presion": f"{tp['presion_finde']:.2f}",
         "ventana": f"{MESES[int(v0[-2:]) - 1]} a {MESES[int(v1[-2:]) - 1]} de {v1[:4]}",
-        "tasa_impl": pct(ofe.get("tasa_implicita", float("nan"))), "ocup_ofi": pct(ofe.get("ocupacion_oficial", float("nan"))),
         "mercado_lider": dm["mercado_lider"] or "Sin dato", "pct_lider": pct(dm["pct_mercado_lider"]),
         "mercado_estadia": dm["mercado_estadia"] or "Sin dato", "estadia_mercado": f"{dm['estadia_mercado_max']:.1f}",
         "est_m1": num(est.iloc[0]), "est_m2": num(est.iloc[-1]),
@@ -293,6 +314,7 @@ def valores(t: dict, r: dict, cal: dict, figs: dict) -> dict[str, str]:
         "requirements": (RAIZ / "requirements.txt").read_text(encoding="utf-8").rstrip(),
         "codigo_estadia": codigo(ind.estadia_media), "codigo_lift": codigo(ind.lift_eventos),
         "codigo_predecir": codigo(pr._predecir), "codigo_regla": codigo(te.clasificar_regla),
+        "codigo_iee": codigo(ind.especializacion_extranjera), "codigo_cruce": codigo(of.cruce_ventana),
         "codigo_nombrar": codigo(te._nombrar), "codigo_vigente": codigo(etl.vigente),
         **figs,
     }
@@ -333,7 +355,8 @@ def main() -> None:
         etl.ejecutar()
     t = {n: pd.read_parquet(etl.PROCESADOS / f"{n}.parquet") for n in ["mensual", "diaria", "migracion_mensual", "ocupacion", "oferta"]}
     cal = __import__("json").loads((etl.PROCESADOS / "calidad.json").read_text(encoding="utf-8"))
-    r = hallazgos.resumen(t["mensual"], t["diaria"], t["migracion_mensual"], t["ocupacion"], t["oferta"], etl.CONFIG)
+    r = hallazgos.resumen(t["mensual"], t["diaria"], t["migracion_mensual"], t["ocupacion"], t["oferta"], etl.CONFIG,
+                          **hallazgos.cargar_opcionales(etl.PROCESADOS))
     BUILD.mkdir(parents=True, exist_ok=True)
     vals = valores(t, r, cal, figuras(t, r))
 

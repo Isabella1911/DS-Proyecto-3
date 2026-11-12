@@ -6,26 +6,30 @@
 
 **Hallazgos principales** (<<periodo>>, <<meses>> meses con telefonía):
 
-1. **<<titulo_h1>>** <<hub_lista>> recibe <<hub_vis>> visitantes por mes en promedio y sus turistas se quedan <<hub_est>> días. En <<larga_lista>> la estancia media sube a <<larga_est>> días con <<larga_ext>> de extranjeros.
-2. **Los picos los marcan las festividades y los fines de semana.** <<evento_top>> eleva la afluencia <<lift_top>> frente a un día regular (<<lift_aj_top>> si se compara con el mismo día de la semana) y los sábados y domingos reciben <<presion>> veces los visitantes de un día hábil.
-3. **<<titulo_h3>>** En la ventana <<ventana>>, las noches que pasan los turistas del lago equivalen al <<tasa_impl>> de las plazas-noche formales de Sololá, con una ocupación oficial de <<ocup_ofi>>. <<cierre_h3>>
+1. **<<titulo_h1>>** <<hub_lista>> concentran el flujo (<<hub_vis>> visitantes por mes en promedio por pueblo) y sus turistas se quedan <<hub_est>> días. En <<larga_lista>> la estancia media sube a <<larga_est>> días y atraen proporcionalmente más extranjeros que el lago (índice de especialización <<larga_iee>>). San Marcos, con la mayor especialización extranjera (<<iee_max>>), tiene en cambio una estadía de <<estadia_mun_iee>> días: la telefonía no respalda su imagen de destino de retiro.
+2. **Los picos los marcan las festividades y los fines de semana, sobre todo en las puertas de entrada.** <<evento_top>> eleva la afluencia <<lift_top>> frente a un día regular (<<lift_aj_top>> si se compara con el mismo día de la semana); los sábados y domingos reciben <<presion>> veces los visitantes de un día hábil, y <<presion_hub>> en los hubs.
+3. **La ocupación oficial describe al turismo extranjero, no al nacional.** En <<ventana>>, los hoteles formales de Sololá registran el <<capt_ext>> de las noches que la telefonía mide para los turistas extranjeros y solo el <<capt_nac>> de las de los nacionales; ambas fuentes, independientes, se mueven juntas (r = <<r_ext>> y <<r_nac>>). Entre quienes entran al país rumbo al lago, el <<fr_airbnb>> declara Airbnb o similar.
 4. **<<titulo_h4>>** Un mercado pequeño de estancia larga puede generar tantas noches como uno masivo de visita corta.
 
-**Estimación de enero y febrero de 2026.** La telefonía no cubre esos meses. Con el factor de reparto sobre la base de migración se estiman **<<est_m1>>** y **<<est_m2>>** visitantes (suma de municipios). El método elegido es el <<metodo>> (<<metodo_nombre>>), que tuvo el menor error al validar dejando un mes fuera: MAPE de <<mape_sel>> (el otro método: <<mape_otro>>). Las estimaciones se rotulan siempre como *Estimación* y no se mezclan con lo observado.
+**Estimación de enero y febrero de 2026.** La telefonía no cubre esos meses. Con el factor de reparto sobre la base de migración se estiman **<<est_m1>>** y **<<est_m2>>** visitantes (suma de municipios). El método elegido es el <<metodo>> (<<metodo_nombre>>), que tuvo el menor error al validar dejando un mes fuera: MAPE de <<mape_sel>> (el otro método: <<mape_otro>>). La base diaria confirma la forma: la rotación mensual (visitantes únicos por presente diario) es estable (<<rot_media>>, variación <<rot_cv>>) y la presencia diaria que implica la estimación cae dentro del rango observado. Las estimaciones se rotulan siempre como *Estimación* y no se mezclan con lo observado.
 
 ![Visitantes por mes (suma de municipios): observado en negro y Estimación en violeta.](<<fig_estimacion>>){width=95%}
 
 # 1. Arquitectura y modelo de datos
 
-## 1.1 Las cinco fuentes
+## 1.1 Las siete fuentes
 
 | Fuente | Archivo y hoja | Granularidad | Columnas que se usan | Uso |
 |:-------|:---------------|:-------------|:---------------------|:----|
 | Migración | `Base_Migracion_2009-2026jun.xlsx`, hoja *Datos* | Mes x país x vía x tipo de viajero (nacional) | `Año`, `Mes cod`, `Tipo de Viajero`, `Viajero` | Llegadas internacionales para estimar ene-feb 2026 (módulo 2) |
-| Movilidad mensual | `BD_movilidad_mensual.xlsx`, hoja *Atitlan* | Municipio x mes x país x segmento | `destino`, `anio`, `mes`, `pais`, `es_consecutivo`, `visitantes`, `dias_persona`, `permanencia_prom` | Demanda, estadía, mercados (módulos 1, 3 y 4) |
-| Movilidad diaria | `BD_movilidad_diaria.xlsx`, hoja *Atitlan* | Municipio x día x país | `destino`, `idfecha`, `pais`, `evento`, `cantidad_visitantes`, `dia_semana` | Festividades, patrón semanal (módulos 2 y 4) |
+| Movilidad mensual | `BD_moviidad_mensual.xlsx`, hoja *Atitlan* | Municipio x mes x país x segmento | `destino`, `anio`, `mes`, `pais`, `es_consecutivo`, `visitantes`, `dias_persona`, `permanencia_prom` | Demanda, estadía, mercados (módulos 1, 3 y 4) |
+| Movilidad diaria | `BD_moviidad_diario.xlsx`, hoja *Atitlan* | Municipio x día x país | `destino`, `idfecha`, `pais`, `evento`, `cantidad_visitantes`, `dia_semana` | Festividades, patrón semanal, verificación de la estimación (módulos 2 y 4) |
 | Ocupación | `indice_ocupacion_mensual_2023_2025_1.csv` | Departamento x mes | `anio`, `mes`, `departamento`, `indice_ocupacion` | Ocupación hotelera (módulo 3) |
 | Oferta | `oferta_hotelera_2022_2026.csv` | Departamento x corte (año y trimestre) x tipo | `anio`, `trimestre`, `departamento`, `tipo_alojamiento`, `establecimientos`, `habitaciones`, `plazas_cama` | Capacidad instalada (módulo 3) |
+| Boletines de ocupación (opcional) | `BOLETIN OCUPACION HOTELERA ... 2023/2024/2025.pdf`, tabla mensual *Movimiento hotelero de turistas residentes y no residentes* | Departamento x mes x residencia | Habitaciones ocupadas, huéspedes registrados, noches realizadas, índice | Noches en hotel formal por residencia para la ventana coincidente; verificación del CSV (módulo 3) |
+| BD complementaria (opcional) | `BD_COMPLEMENTARIA` (parquet), encuesta de perfil en puestos fronterizos | Encuesta individual (solo se conservan agregados) | `nuevo_destino`, `BD` (ola), `hospedaje`, `nombre_frontera`, `agrupacion_nombre`, `fecha` | Alojamiento declarado y puerta de ingreso de quienes van al lago (módulo 3) |
+
+Del paquete se descartaron, por no corresponder a Atitlán según la guía de uso, las encuestas de satisfacción y de residentes (solo Antigua y Petén) y los archivos del aeropuerto y de Tikal (solo Petén).
 
 ## 1.2 Cómo se relacionan
 
@@ -33,10 +37,13 @@ Las bases no comparten un identificador único; se unen por llaves de tiempo y t
 
 - **Periodo (año y mes)** une la movilidad mensual con la migración (factor de reparto) y con la ocupación (ventana coincidente).
 - **Municipio** une la movilidad mensual con la diaria: el perfil de cada pueblo combina volumen y estadía (mensual) con presión de fin de semana y festividades (diaria).
-- **Departamento y año** unen la ocupación con la oferta: las plazas cama del corte del año dan las plazas-noche del mes.
+- **Departamento y año** unen la ocupación con la oferta (inventario de cada corte).
+- **Departamento, mes y residencia** unen el boletín con la telefonía en la ventana sep–dic 2025: extranjeros con no residentes y nacionales con residentes. Su índice de ocupación se cruza con el CSV como control (coinciden en todos los meses).
+- **Destino declarado** filtra la encuesta en fronteras (`nuevo_destino = Lago Atitlán`); no se une fila a fila con otra base.
+- Una **tabla de meses común** (indicador de cobertura en Inicio y Calidad) muestra qué fuentes respaldan cada mes; un mes sin cobertura se declara *sin dato*.
 - La movilidad diaria **nunca se suma** para obtener el mes: mide presencia por día y la misma persona aparece en cada día que pasa en el destino.
 
-![Flujo de datos y relaciones entre las cinco bases](<<fig_arquitectura>>){width=100%}
+![Flujo de datos y relaciones entre las bases](<<fig_arquitectura>>){width=100%}
 
 ## 1.3 Del archivo original al tablero
 
@@ -51,6 +58,8 @@ Las bases no comparten un identificador único; se unen por llaves de tiempo y t
 | `migracion_mensual.parquet` | mes | `periodo`, `anio`, `mes`, `llegadas` (turistas + excursionistas) |
 | `ocupacion.parquet` | departamento x mes | `departamento`, `periodo`, `ocupacion` (0 a 1) |
 | `oferta.parquet` | departamento x corte x tipo | `departamento`, `anio`, `trimestre`, `tipo_alojamiento`, medidas, `corte_parcial`, `repite_previo` |
+| `boletin_hotelero.parquet` | mes (Sololá) | `periodo`, habitaciones, huéspedes y noches de residentes y no residentes, `ocupacion`, `archivo` |
+| `frontera_destino.parquet` | combinación ola x residencia x alojamiento x puesto x transporte x rango de noches | `encuestas`, `personas`, `desde`, `hasta` (solo agregados) |
 
 ## 1.4 Calidad de los datos
 
@@ -86,23 +95,23 @@ Cada indicador del tablero tiene una ficha de ocho campos: nombre, definición, 
 
 ## 3.1 Pregunta y variables
 
-¿Qué papel juega cada pueblo del lago? Se construye un perfil por municipio con seis variables: visitantes promedio por mes, estadía media ponderada, porcentaje de extranjeros y de excursionistas (base mensual), y presión de fin de semana y Lift máximo de festividad (base diaria). Las variables se eligieron porque cada una responde a una decisión distinta: el volumen a la gestión de flujo, la estadía y el origen a la promoción, y la presión de fin de semana a la planificación de servicios.
+¿Qué papel juega cada pueblo del lago? Se construye un perfil por municipio con seis variables: visitantes promedio por mes, estadía media ponderada, índice de especialización extranjera (IEE) y porcentaje de excursionistas (base mensual), y presión de fin de semana y Lift máximo de festividad (base diaria). El IEE reemplaza al "porcentaje de extranjeros" que sugiere la asignación: la guía de uso prohíbe dividir extranjeros entre el total porque los nacionales traen factor de expansión. El IEE compara la cuota del pueblo entre los extranjeros del lago con su cuota entre los nacionales, de modo que un factor de expansión constante se cancela, y ordena a los municipios igual que la proporción de la fuente. Las variables se eligieron porque cada una responde a una decisión distinta: el volumen a la gestión de flujo, la estadía y el origen a la promoción, y la presión de fin de semana a la planificación de servicios.
 
 ## 3.2 Regla del cuadrante
 
 Es la clasificación principal porque se puede explicar en una frase y repetir cada mes:
 
-- **Hub comercial:** volumen de al menos el 60 % del municipio con más visitantes (hoy, <<umbral_hub>> visitantes por mes).
-- **Larga estancia:** estadía igual o mayor que la mediana del lago (<<mediana_estadia>> días) y mayoría extranjera (50 % o más).
-- **Visita corta:** el resto.
+1. **Larga estancia:** estadía en el cuartil superior del lago (hoy, <<p75_estadia>> días o más) e IEE de al menos 1.
+2. **Hub comercial (puerta de entrada):** volumen de al menos el 60 % del municipio con más visitantes (hoy, <<umbral_hub>> visitantes por mes).
+3. **Visita corta:** el resto.
 
-El cuadrante del módulo 4 dibuja el volumen (escala logarítmica) contra la estadía, con el tamaño según el porcentaje de extranjeros y las medianas del lago como líneas de referencia.
+La permanencia se evalúa primero: un pueblo con mucho volumen y estadía excepcional es un destino de permanencia, no de paso. Una primera versión de la regla exigía "mayoría extranjera" para larga estancia; con los datos reales ningún pueblo pasa del 15 % en la fuente, así que esa condición dejaba la clase vacía y se reemplazó por IEE ≥ 1. El cuadrante del módulo 4 dibuja el volumen (escala logarítmica) contra la estadía, con el tamaño según el IEE y los umbrales de la regla como líneas punteadas. Un mapa del lago animado mes a mes muestra el peso de cada pueblo (visitantes únicos del mes) con el color de su clase; la base no trae pares origen-destino, así que no se dibujan desplazamientos.
 
 ## 3.3 k-medias como contraste
 
 k-medias agrupa a los municipios por parecido, sin reglas fijas. Se usa como contraste de la regla y no como clasificación independiente, por tres razones: con diez municipios cada uno pesa mucho, el algoritmo siempre devuelve los grupos que se le piden aunque no existan, y sus grupos no tienen nombre propio.
 
-- **Variables:** $\log_{10}$ del volumen (la distribución es muy asimétrica: sin el logaritmo el hub dominaría la distancia), estadía media, porcentaje de extranjeros y presión de fin de semana.
+- **Variables:** $\log_{10}$ del volumen (la distribución es muy asimétrica: sin el logaritmo el hub dominaría la distancia), estadía media, IEE y presión de fin de semana.
 - **Escala:** cada variable se estandariza (media 0, desviación 1) para que ninguna pese más por su unidad. Es una decisión de negocio: las cuatro dimensiones importan lo mismo para el INGUAT.
 - **Ajuste:** $k = 3$, 50 inicios aleatorios con semilla 42 y se conserva la partición de menor inercia. Implementado con numpy, sin dependencias nuevas.
 - **Nombres:** el grupo con mayor volumen es el hub; de los otros dos, el de mayor estadía es larga estancia y el restante visita corta.
@@ -116,7 +125,9 @@ Regla y k-medias coinciden en **<<coinciden>> de <<n>>** municipios<<difieren_te
 
 <<tabla_clases>>
 
-![Cuadrante de los municipios (regla del cuadrante). Color y forma: clase; tamaño: porcentaje de extranjeros.](<<fig_cuadrante>>){width=95%}
+![Cuadrante de los municipios (regla del cuadrante). Color y forma: clase; tamaño: especialización extranjera.](<<fig_cuadrante>>){width=95%}
+
+**Lectura.** <<hub_lista>> son las puertas de entrada: concentran el volumen y la presión de fin de semana (nacionales que llegan por carretera). <<larga_lista>> retienen las estancias más largas y más peso extranjero. San Marcos es el caso que contradice la expectativa de la asignación ("larga estancia/retiro"): tiene la mayor especialización extranjera del lago (IEE <<iee_max>>) pero una estadía de <<estadia_mun_iee>> días, por debajo de la mediana. Una explicación posible es que muchos extranjeros duermen en un pueblo vecino (San Pedro está a minutos en lancha) y lo visitan de día; confirmarlo exige pares origen-destino entre polígonos o una encuesta en sitio. k-medias separa sobre todo por niveles de volumen, por eso difiere de la regla en los pueblos intermedios.
 
 ## 3.5 Validación con la dinámica diaria
 
@@ -128,27 +139,57 @@ Si la clasificación es correcta, los pueblos de visita corta deberían depender
 - Los volúmenes de una clase son **suma de municipios**: un visitante que recorre varios pueblos cuenta en cada uno. Por eso se comparan promedios simples por municipio e índices, nunca totales.
 - La clasificación se recalcula sola con datos nuevos; conviene revisarla cada trimestre para ver si algún pueblo cambia de papel.
 
+## 3.7 Triangulación con la hotelería formal y la encuesta en fronteras
+
+El reto pide aprovechar todas las fuentes. Para Atitlán se integraron las dos fuentes opcionales de la asignación:
+
+- **Boletines de ocupación 2023–2025.** Se extrajo con código (pypdf) el renglón de Sololá de las 36 tablas mensuales de movimiento hotelero por residencia; cada renglón debe tener ocho cifras y cumplir que las habitaciones de residentes más las de no residentes igualen el total. El índice de ocupación extraído coincide con el CSV oficial en los 36 meses, lo que valida la extracción. La guía advierte contra extraer a mano cifras que ya están en los archivos: por eso del boletín solo se usa lo que el CSV no trae (huéspedes y noches por residencia).
+- **Captación formal.** En <<ventana>> los turistas extranjeros suman <<noches_tel_ext>> noches por mes según la telefonía y los hoteles formales registran <<noches_hotel_ext>> noches de no residentes: captación de <<capt_ext>>. Para nacionales es de <<capt_nac>>. Como la telefonía es suma de municipios, la captación es una cota inferior.
+- **Encuesta en fronteras (BD complementaria).** De <<fr_total>> encuestas, las que declaran ir al lago muestran en la ola <<fr_ola>> (<<fr_n>> encuestas) que el <<fr_hotel>> se aloja en hotel o similar y el <<fr_airbnb>> en Airbnb o similar, y que el <<fr_puesto_pct>> entra por <<fr_puesto>>. La proporción de Airbnb varía entre <<fr_airbnb_min>> y <<fr_airbnb_max>> según la ola (cambian cuotas y puestos), así que no se lee como tendencia.
+
+La conclusión es robusta a esas limitaciones: el registro hotelero formal describe bien al turismo extranjero y casi nada de la presencia nacional con pernocta.
+
 # 4. Supuestos y limitaciones
 
 1. **Solo datos de Sololá.** Se usan los registros de los diez municipios del lago. Otros destinos que aparezcan en las bases se reportan en *Calidad de los datos* y se excluyen. La ocupación y la oferta son departamentales: no hay capacidad por municipio.
 2. **Sin comparación 2025 contra 2026.** La telefonía no cubre enero ni febrero de ningún año. Esos meses se estiman y no hay un mismo mes observado en dos años, así que no se puede medir el crecimiento interanual.
-3. **Hotelería formal y plataformas digitales son universos distintos.** La oferta y la ocupación cubren establecimientos registrados; las noches en Airbnb o casas de familia no están ahí. La tasa implícita no suma ambos universos: solo compara la demanda medida por telefonía con la capacidad formal.
-4. **Encuestas sin factor de expansión.** Las encuestas disponibles no traen factor de expansión, así que no representan al total de visitantes. No se usaron en el tablero; incorporarlas exigiría ese factor.
+3. **Hotelería formal y plataformas digitales son universos distintos.** La oferta, la ocupación y los boletines cubren establecimientos registrados; las noches en Airbnb o casas de familia no están ahí. La captación formal no suma ambos universos: mide qué parte de las noches de la telefonía registra el hotel formal.
+4. **Encuestas sin factor de expansión.** La encuesta en fronteras es una muestra por cuotas sin factor de expansión, levantada sobre todo en puestos terrestres (el aeropuerto está subrepresentado). Solo se reportan porcentajes dentro del segmento que declara ir al lago y de la ola vigente, nunca totales de visitantes ni series de tiempo. Las encuestas de satisfacción y de residentes no existen para Atitlán.
 5. **Nacionales con factor de expansión.** El conteo de nacionales de la telefonía ya viene expandido y no es comparable en la misma escala que el de extranjeros: se reportan por separado.
 6. **Estimación.** El factor de reparto supone que la fracción de llegadas internacionales que llega al lago es estable entre meses. Para los nacionales el supuesto es más débil porque no pasan por migración.
 7. **Corte de oferta 2026 parcial.** Es del primer trimestre y repite valores del año previo en buena parte de las combinaciones; no entra al cálculo de crecimiento.
-8. **Fuentes opcionales no integradas.** La BD complementaria y los boletines de ocupación en PDF no se incorporaron porque no estaban disponibles para el equipo en el formato de trabajo.
-9. **Datos sintéticos en el repositorio.** Por la cláusula de confidencialidad, el repositorio y la imagen de Docker solo contienen datos sintéticos con la misma estructura. Las cifras de esta memoria corresponden a los datos indicados en la primera página.
+8. **Telefonía como suma de municipios.** El total del lago debe solicitarse al proveedor; sumar los diez municipios duplica a quien visita varios pueblos. Todo volumen agregado se rotula como suma de municipios (cota superior) y los cocientes (estadía, captación) se interpretan en consecuencia.
+9. **Ruptura en la migración.** La base de migración tiene una ruptura metodológica entre 2022 y 2023; el perfil estacional usa solo 2023–2025.
+10. **Datos sintéticos en el repositorio.** Por la cláusula de confidencialidad, el repositorio y la imagen de Docker solo contienen datos sintéticos con la misma estructura. Las cifras de esta memoria corresponden a los datos indicados en la primera página.
 
 # 5. Recomendaciones para el INGUAT
 
-1. **Gestión de flujo en picos.** Reforzar transporte lacustre, seguridad y servicios en <<evento_top>> y los fines de semana, con prioridad en los pueblos de visita corta (<<corta_lista>>), donde la presión de fin de semana es <<presion_corta>>.
-2. **Promoción de estancias largas.** Dirigir la promoción internacional a <<mercado_estadia>> y mercados parecidos, con producto en <<larga_lista>>, donde cada turista se queda <<larga_est>> días.
-3. **Medir el alojamiento no formal.** Acordar con las plataformas digitales un registro de noches por municipio para cerrar la brecha entre la demanda medida y la capacidad formal.
-4. **Cerrar el hueco de telefonía.** Pedir al proveedor la cobertura de enero y febrero: sin ella la temporada de esos meses solo se estima y no se puede comparar 2025 contra 2026.
-5. **Monitoreo continuo.** Actualizar el tablero cada mes con el mismo ETL, revisar la página de Calidad antes de publicar y reportar los indicadores con la periodicidad que exige INSTO.
+Cada recomendación se apoya en un hallazgo cuantitativo del tablero y tiene una prioridad según la solidez de la evidencia y el costo de no actuar.
 
-**Datos nuevos que convendría incorporar:** la BD complementaria y los boletines de ocupación (fuentes opcionales de la asignación); la oferta y la ocupación por municipio; un registro de plataformas digitales; encuestas con factor de expansión (gasto y motivo de viaje) para pasar de visitantes a impacto económico; conteos del transporte lacustre entre pueblos; e indicadores ambientales (agua, residuos) que INSTO considera obligatorios.
+| # | Recomendación | Evidencia | Decisión que apoya | Prioridad |
+|:--|:--------------|:----------|:-------------------|:----------|
+| 1 | **Gestionar los picos en las puertas de entrada** | <<evento_top>> <<lift_top>> sobre un día regular; fin de semana <<presion>> veces un día hábil y <<presion_hub>> en <<hub_lista>> | Reforzar transporte lacustre, seguridad y servicios municipales sábados, domingos y fin de año en los hubs; planificar con el patrón semanal de cada pueblo | Alta |
+| 2 | **Medir el alojamiento que hoy no se ve** | Captación formal de <<capt_ext>> en extranjeros y <<capt_nac>> en nacionales; <<fr_airbnb>> de los encuestados rumbo al lago declara Airbnb | Crear con las municipalidades un registro de casas de huéspedes y plataformas digitales; hasta entonces, leer la ocupación oficial como indicador del turismo extranjero | Alta |
+| 3 | **Promover estancias largas donde ya ocurren** | <<larga_lista>>: <<larga_est>> días frente a <<hub_est>> en los hubs e IEE <<larga_iee>>; <<mercado_estadia>> es el mercado de mayor estadía; el <<fr_puesto_pct>> de los encuestados entra por <<fr_puesto>> | Orientar la promoción internacional de estadías largas a esos pueblos y mercados, con información turística en la ruta terrestre de ingreso | Media |
+| 4 | **Atacar la temporada baja** | La ocupación de Sololá cae a <<valle_ocup>> en <<valle_mes>> (promedio 2023–2025) frente a picos sobre 90 % | Campañas para el mercado nacional y paquetes de fin de semana en los meses valle, cuando sobra capacidad formal | Media |
+| 5 | **Cerrar el hueco de telefonía** | Enero y febrero solo se estiman (MAPE <<mape_sel>>) y no hay comparación 2025 vs 2026 | Pedir al proveedor cobertura continua y el total del destino; actualizar el tablero cada mes con el mismo ETL | Base |
+
+**Datos nuevos que convendría incorporar:** telefonía continua de 12 meses y el total del destino entregado por el proveedor; pares origen-destino entre polígonos (para confirmar el caso de San Marcos y medir el flujo entre pueblos); oferta y ocupación por municipio; un registro de plataformas digitales; una encuesta en sitio con factor de expansión (gasto, motivo, alojamiento); conteos del transporte lacustre por muelle; e indicadores ambientales (agua, residuos) que INSTO considera obligatorios.
+
+# 5.1 Qué se incluyó en el tablero y qué se descartó
+
+| Elemento | Decisión | Razón |
+|:---------|:---------|:------|
+| Cuadrante volumen x estadía x especialización, regla y k-medias | Incluido | Es el entregable del reto en la asignación; k-medias da un contraste independiente de la regla |
+| Mapa animado del peso de cada pueblo | Incluido | La guía de uso lo pide para Atitlán ("mapa con el peso de cada pueblo y su evolución mensual") |
+| Mapa de desplazamientos entre pueblos | Descartado | La base no trae pares origen-destino; dibujarlo sería inventar flujos |
+| Porcentaje de extranjeros = extranjeros / total | Sustituido por el IEE | Error explícito en la guía de uso (nacionales con factor de expansión) |
+| Tasa implícita de ocupación (noches de telefonía / plazas-noche) | Descartada en la versión final | Con datos reales daba 578 %: mezcla presencia nacional no turística con un universo hotelero formal. Se reemplazó por la captación formal por origen con los boletines |
+| Tendencia de la oferta 2022–2026 | Descartada | Son cinco cortes de inventario; se muestran como barras por corte, sin línea de tendencia, y el corte 2026-T1 como parcial |
+| Comparación interanual 2025 vs 2026 | Descartada | Ningún mes de telefonía se repite entre años |
+| Proyección de la base diaria | Descartada | La guía la prohíbe; la base diaria solo verifica la estimación mensual |
+| Encuestas de satisfacción, residentes, aeropuerto y Tikal | Descartadas | No corresponden a Atitlán según la guía de uso |
+| Encuesta en fronteras y boletines | Incluidos | Fuentes opcionales que sí aportan evidencia sobre el lago (alojamiento declarado, noches por residencia) |
 
 # 6. Observatorios de referencia: INSTO y SEGITTUR
 
@@ -193,7 +234,8 @@ El tema es claro y fijo: los contrastes se midieron sobre superficies claras y e
 
 ## 7.3 Interacción y pantallas pequeñas
 
-- **Cuatro gráficas enlazadas** (la guía pide tres): municipios en el módulo 1, Lift en el 2, capacidad anual en el 3 y cuadrante en el 4. Todas llevan la misma pista "Clic para filtrar" y las gráficas que reciben el filtro muestran el chip "Filtrado por".
+- **Cuatro gráficas enlazadas** (la guía pide tres): municipios en el módulo 1 (filtra KPIs, segmentación, top 10 y estadía por nacionalidad), Lift en el 2 (resalta la festividad en la serie diaria), capacidad anual en el 3 (enfoca la ocupación en el año) y cuadrante en el 4 (abre el perfil del municipio y lo marca en la matriz).
+- **Indicador de cobertura** en Inicio y Calidad: qué fuentes respaldan cada mes, con los meses estimados recuadrados en violeta. Todas llevan la misma pista "Clic para filtrar" y las gráficas que reciben el filtro muestran el chip "Filtrado por".
 - **Barra de Plotly uniforme:** solo "descargar PNG"; sin zoom, paneo ni lazo. La única gráfica con acercamiento es la serie diaria, con su barra inferior.
 - **Sin descarga de tablas:** se desactivó la exportación CSV de Streamlit (`client.disableDataExport`), aunque las tablas solo muestran agregados.
 - **Responsivo:** se probó a 375 px (celular) y 768 px (tableta) sin desplazamiento horizontal; los encabezados y mosaicos se reorganizan y la barra de Plotly se oculta en pantallas táctiles.
@@ -223,6 +265,18 @@ El tema es claro y fijo: los contrastes se midieron sobre superficies claras y e
 
 ```python
 <<codigo_lift>>
+```
+
+**Índice de especialización extranjera** (`src/indicadores.py`): sustituye a extranjeros / total.
+
+```python
+<<codigo_iee>>
+```
+
+**Captación formal en la ventana coincidente** (`src/oferta.py`).
+
+```python
+<<codigo_cruce>>
 ```
 
 **Estimación de los meses sin telefonía** (`src/pronostico.py`).
@@ -268,7 +322,7 @@ sudo usermod -aG docker $USER    # cerrar sesión y volver a entrar
 ```bash
 sudo git clone git@github.com:Isabella1911/DS-Proyecto-3.git /opt/observatorio
 sudo mkdir -p /srv/observatorio/datos && sudo chmod 750 /srv/observatorio/datos
-# copiar las 5 bases con su nombre original, por ejemplo con scp desde un equipo autorizado
+# copiar las bases con su nombre original (incluidos los boletines PDF y BD_COMPLEMENTARIA), por ejemplo con scp desde un equipo autorizado
 ```
 
 3. Construir y levantar el tablero con los datos montados en solo lectura:
@@ -303,6 +357,8 @@ python scripts/generar_memoria.py          # vuelve a generar esta memoria con l
 La salida de ambos scripts es solo agregada; nunca imprime filas de las bases.
 
 # Referencias
+
+- INGUAT (2026). *Guía de uso de los datos. Tableros por destino* (documento del curso) y boletines anuales de ocupación hotelera 2023, 2024 y 2025.
 
 - ONU Turismo. *About the International Network of Sustainable Tourism Observatories (INSTO)*. <https://www.untourism.int/sustainable-development/about-insto>
 - ONU Turismo. *INSTO Framework*. <https://www.untourism.int/sustainable-development/into-framework>
