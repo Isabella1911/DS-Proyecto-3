@@ -20,6 +20,5 @@ venv/
 # Editor / SO
 .vscode/
 .idea/
-.claude/
 .DS_Store
 Thumbs.db

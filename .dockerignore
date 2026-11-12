@@ -5,6 +5,5 @@ data/
 venv/
 **/__pycache__/
 .pytest_cache/
-.claude/
 docs/
 .DS_Store
