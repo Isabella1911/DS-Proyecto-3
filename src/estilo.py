@@ -87,10 +87,13 @@ def aplicar_estilo(fig: go.Figure, alto: int = 420) -> go.Figure:
         # Sin zoom ni paneo al arrastrar: la unica interaccion es el clic de las graficas enlazadas
         dragmode=False,
     )
+    # fixedrange: ni zoom ni paneo aunque Streamlit active el modo "pan" en las graficas con seleccion
     fig.update_xaxes(
-        showgrid=False, linecolor=EJE, automargin=True, tickfont=dict(color=TINTA_TENUE), title_font=dict(color=TINTA_SECUNDARIA)
+        showgrid=False, linecolor=EJE, automargin=True, tickfont=dict(color=TINTA_TENUE), title_font=dict(color=TINTA_SECUNDARIA),
+        fixedrange=True,
     )
     fig.update_yaxes(
+        fixedrange=True,
         automargin=True,
         gridcolor=CUADRICULA,
         zeroline=False,

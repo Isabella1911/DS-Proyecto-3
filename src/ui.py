@@ -91,6 +91,31 @@ _CSS = """
 
 [data-testid="stCaptionContainer"] { color: #6f6f6f; }
 [data-testid="stSidebar"] [data-testid="stCaptionContainer"] { font-size: .7rem; line-height: 1.45; }
+
+/* tableta: menos margen y encabezado en una columna */
+@media (max-width: 1024px) {
+  /* con la barra lateral plegada el logo flota arriba a la izquierda: se deja espacio y fondo opaco */
+  [data-testid="stMainBlockContainer"] { padding: 3.25rem 1.25rem 2.5rem; }
+  [data-testid="stHeader"] { background: #f4f4f4; }
+  .ot-head { gap: 1rem; }
+}
+/* celular: Streamlit apila las columnas debajo de 640 px; se ordena el encabezado de cada mosaico */
+@media (max-width: 640px) {
+  [data-testid="stMainBlockContainer"] { padding: 3.25rem .75rem 2rem; }
+  .ot-head { flex-direction: column; align-items: flex-start; gap: .5rem; }
+  .ot-meta { text-align: left; white-space: normal; }
+  .ot-h1 { font-size: 1.4rem; }
+  .ot-kpis { grid-template-columns: repeat(auto-fit, minmax(9.5rem, 1fr)); gap: .5rem; }
+  .ot-kpi .v { font-size: 1.5rem; }
+  [class*="st-key-tile-"], [class*="st-key-filtros-"] { padding: .75rem .75rem .5rem !important; }
+  [class*="st-key-tile-"] [data-testid="stHorizontalBlock"]:has(.ot-tags) { flex-wrap: wrap; align-items: center; gap: .25rem .5rem; }
+  [class*="st-key-tile-"] [data-testid="stHorizontalBlock"]:has(.ot-tags) > [data-testid="stColumn"]:nth-child(1) { flex: 1 1 100% !important; min-width: 100% !important; }
+  [class*="st-key-tile-"] [data-testid="stHorizontalBlock"]:has(.ot-tags) > [data-testid="stColumn"]:nth-child(2) { flex: 1 1 auto !important; min-width: 0 !important; width: auto !important; }
+  [class*="st-key-tile-"] [data-testid="stHorizontalBlock"]:has(.ot-tags) > [data-testid="stColumn"]:nth-child(3) { flex: 0 0 auto !important; min-width: 0 !important; width: auto !important; }
+  .ot-tags { justify-content: flex-start; }
+  /* en pantallas tactiles la barra de Plotly queda siempre visible y tapa la leyenda */
+  .modebar-container { display: none; }
+}
 </style>
 """
 
