@@ -27,11 +27,15 @@ st.markdown(
 | Estadía media ponderada | $\dfrac{\sum DP_{s=\text{>1 día}}}{\sum V_{s=\text{>1 día}}}$ | Solo turistas con pernocta; **nunca** se promedia `permanencia_prom` |
 | % turistas | $\dfrac{\sum V_{s=\text{>1 día}}}{\sum V}$ | Excursionistas (< 24 h) con permanencia 1 por definición |
 | Lift de festividad | $\dfrac{\overline{V}_{\text{evento}}}{\overline{V}_{\text{regular}}} - 1$ | Base diaria; promedio por día, no suma |
-| Tasa implícita de ocupación | $\dfrac{\sum DP_{s=\text{>1 día}}}{\text{plazas cama} \times \text{días del mes}}$ | Solo ventana sep–dic 2025; suma de municipios |
+| Especialización extranjera (IEE) | $\dfrac{E_i / \sum_j E_j}{N_i / \sum_j N_j}$ | Lago = 1. Sustituye a "extranjeros / total", que la guía prohíbe (los nacionales traen factor de expansión) |
+| Captación formal de noches | $\dfrac{\text{noches en hotel (boletín)}}{\sum (DP - V)_{s=\text{>1 día}}}$ | Solo sep–dic 2025; por origen (extranjeros vs. no residentes, nacionales vs. residentes); cota inferior |
+| Rotación mensual | $\dfrac{V_{\text{mes}}}{\overline{P}_{\text{diaria}}}$ | Verifica la estimación con la base diaria; ninguna base se suma |
+| % en encuesta de fronteras | $\dfrac{n_{\text{categoría}}}{n_{\text{segmento}}}$ | Porcentaje muestral sin factor de expansión; nunca total de visitantes |
 | Afluencia relativa | $100 \cdot \overline{V}_{\text{municipio}} / \overline{V}_{\text{Panajachel}}$ | Índice, nunca participación sobre una suma |
-| Clase del municipio | Regla del cuadrante y k-medias ($k = 3$) | Variables: log volumen, estadía, % extranjeros, presión de fin de semana |
+| Clase del municipio | Regla del cuadrante y k-medias ($k = 3$) | Regla: larga estancia = estadía ≥ P75 e IEE ≥ 1; hub = volumen ≥ 60 % del mayor. k-medias: log volumen, estadía, IEE, presión de fin de semana |
 | Presión de fin de semana | $\dfrac{\overline{V}_{\text{sáb,dom}}}{\overline{V}_{\text{lun–vie}}}$ | Solo días regulares |
 | Estimación ene–feb 2026 (A) | $\hat D_t = \dfrac{\sum_{obs} D}{\sum_{obs} M}\, M_t$ | $M$ = llegadas internacionales (base de migración) |
+| Estimación ene–feb 2026 (B) | $\hat D_t = L\, S_{m(t)},\ L = \dfrac{\sum_{obs} D}{\sum_{obs} S}$ | $S$ = perfil estacional de migración 2023–2025 (evita la ruptura 2022–2023) |
 | MAPE | $\frac{100}{n}\sum \frac{\lvert \hat D_t - D_t\rvert}{D_t}$ | Validación dejando un mes fuera |
 """
 )
@@ -77,17 +81,23 @@ st.html(
     '<style>td,th{padding:.35rem .5rem;border-bottom:1px solid #e0e0e0;vertical-align:top}</style>'
 )
 
-st.subheader("Limitaciones")
+st.subheader("Fuentes y limitaciones")
 st.markdown(
-    "- **Datos sintéticos en esta versión**: las bases institucionales son confidenciales; el tablero lee los reales "
-    "si se colocan en `data/raw/` (o en la carpeta de `OBS_DATOS`) y se reprocesa solo al detectar archivos nuevos.\n"
-    "- Solo se usan los registros de los 10 municipios del lago (Sololá); otros destinos de las bases se reportan en "
-    "Calidad de los datos y se excluyen.\n"
+    "- **Siete fuentes**: telefonía mensual y diaria (hoja Atitlan), base de migración, índice de ocupación, oferta "
+    "hotelera, boletines de ocupación 2023–2025 (PDF) y encuesta de perfil del visitante en fronteras (BD complementaria). "
+    "Las encuestas de satisfacción y de residentes solo existen para Antigua y Petén, y no se usan.\n"
+    "- Solo se usan los registros de los 10 municipios del lago; la oferta y la ocupación son del **departamento de "
+    "Sololá** (incluyen hoteles fuera de la orilla del lago).\n"
     "- La telefonía no cubre enero y febrero de 2026: no hay comparación interanual directa 2025 vs 2026.\n"
-    "- Los nacionales incorporan factor de expansión: se reportan separados de los extranjeros.\n"
-    "- Hotelería formal y plataformas digitales (Airbnb) son universos distintos.\n"
-    "- El corte de oferta 2026 es parcial (primer trimestre, con valores repetidos del año previo).\n"
-    "- Las encuestas disponibles no traen factor de expansión: no se usaron, porque no representan al total de visitantes.\n"
+    "- Los nacionales incorporan factor de expansión: se reportan separados de los extranjeros y nunca se divide "
+    "extranjeros / total.\n"
+    "- Hotelería formal y plataformas digitales (Airbnb) son universos distintos: la captación formal mide cuánto "
+    "registra el hotel formal, no la capacidad total del lago.\n"
+    "- El corte de oferta 2026 es parcial (primer trimestre); los cortes anuales son inventario, no tendencia.\n"
+    "- La encuesta en fronteras no tiene factor de expansión, se levanta sobre todo en puestos terrestres y cambia de "
+    "cuotas entre olas: solo se reportan porcentajes de la ola vigente.\n"
+    "- De los boletines solo se extrae, con código, lo que no está en los CSV (huéspedes y noches por residencia); su "
+    "índice de ocupación se usa únicamente para verificar el CSV (coinciden).\n"
     "- k-medias con 10 municipios es un contraste de la regla, no una clasificación independiente; su estabilidad se "
     "reporta en el módulo 4."
 )

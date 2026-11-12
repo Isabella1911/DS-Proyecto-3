@@ -3,10 +3,10 @@
 import streamlit as st
 
 from src import indicadores as ind
-from src.datos import corto, origenes, tabla
+from src.datos import CONFIG, cobertura, corto, origenes, tabla
 from src.estilo import formato_numero
-from src.graficas import MES_ES
-from src.ui import aviso_sinteticos, encabezado_pagina, indicadores, nota
+from src.graficas import MES_ES, fig_cobertura
+from src.ui import aviso_sinteticos, encabezado_pagina, grafica, indicadores, mosaico, nota
 
 m = tabla("mensual")
 d = tabla("diaria")
@@ -30,7 +30,8 @@ indicadores([
      "contexto": "cota superior: un visitante puede contar en varios pueblos", "serie": k["serie_visitantes"]},
     {"etiqueta": "Estadía media ponderada", "valor": f"{k['estadia_media']:.2f} días", "contexto": "turistas con pernocta",
      "serie": k["serie_estadia"]},
-    {"etiqueta": "Visitantes extranjeros", "valor": f"{k['pct_extranjeros']:.0%}", "contexto": "del total de visitantes"},
+    {"etiqueta": "Visitantes extranjeros por mes", "valor": formato_numero(k["extranjeros_mes"]),
+     "contexto": f"nacionales: {formato_numero(k['nacionales_mes'])}/mes, con factor de expansión (se reportan aparte)"},
     {"etiqueta": "Festividad de mayor impacto", "valor": lift["lift"].idxmax() if len(lift) else "Sin dato",
      "contexto": f"Lift {lift['lift'].max():+.0%} frente a un día regular" if len(lift) else "sin festividades en la base diaria"},
 ])
@@ -53,11 +54,19 @@ with c2, st.container(key="tile-inicio-reglas"):
         "- Personas y porcentajes nunca comparten eje."
     )
 
+with mosaico("inicio-cobertura", "¿Qué fuentes respaldan cada mes?",
+             "Indicador de cobertura · azul: con dato · gris: sin dato (nunca cero) · recuadro violeta: meses estimados",
+             "observado",
+             "Las fuentes tienen coberturas distintas. Telefonía: sep–dic 2025 y mar–ago 2026 (ene–feb 2026 se estiman). "
+             "Ocupación y boletines: 2023–2025. La única ventana donde telefonía y ocupación coinciden es sep–dic 2025, y "
+             "todo cruce entre ellas se limita a esos cuatro meses. Oferta: un corte por año (inventario, no flujo)."):
+    grafica(fig_cobertura(cobertura(), CONFIG["estimacion"]["meses_sin_cobertura"]), "inicio_cobertura")
+
 ACCESOS = [
     ("paginas/m1_demanda.py", "1 · Demanda y mercados", "KPIs, turista vs. excursionista y top 10 de nacionalidades.", ":material/groups:"),
     ("paginas/m2_temporal.py", "2 · Dinámica temporal", "Serie diaria, Lift de festividades, patrón semanal y estimación ene-feb 2026.", ":material/calendar_month:"),
-    ("paginas/m3_oferta.py", "3 · Oferta hotelera", "Capacidad, ocupación, noches demandadas vs. plazas y reparto entre municipios.", ":material/hotel:"),
-    ("paginas/m4_municipios.py", "4 · Red de municipios", "Hubs, larga estancia y visita corta: cuadrante, k-medias y dinámica de cada pueblo.", ":material/hub:"),
+    ("paginas/m3_oferta.py", "3 · Oferta hotelera", "Capacidad, ocupación, captación formal de noches (telefonía × boletines) y dónde se alojan.", ":material/hotel:"),
+    ("paginas/m4_municipios.py", "4 · Red de municipios", "Hubs, larga estancia y visita corta: cuadrante, k-medias y mapa mes a mes de cada pueblo.", ":material/hub:"),
     ("paginas/conclusiones.py", "Conclusiones", "La historia de los cuatro módulos y recomendaciones para el INGUAT.", ":material/flag:"),
 ]
 cols = st.columns(len(ACCESOS), gap="small")

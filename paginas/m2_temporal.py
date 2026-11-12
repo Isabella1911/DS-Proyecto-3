@@ -12,7 +12,7 @@ from src import pronostico as pr
 from src.datos import CONFIG, corto, origenes, selector_ambito, tabla
 from src.estilo import formato_numero
 from src.graficas import (
-    MES_ES, fig_lift, fig_mensual_estimada, fig_patron_semanal, fig_perfil_estacional, fig_serie_diaria, fig_validacion,
+    MES_ES, fig_consistencia_diaria, fig_lift, fig_mensual_estimada, fig_patron_semanal, fig_perfil_estacional, fig_serie_diaria, fig_validacion,
 )
 from src.ui import aviso_sinteticos, barra_filtros, encabezado_pagina, grafica, indicadores, mosaico, nota, siguiente, sin_datos
 
@@ -201,10 +201,40 @@ with c8, st.container(key="tile-m2-lectura-est"):
         nota("interpretacion", f"El error de validación ({r.mape:.0f} %) es alto: presente la estimación como orden de "
              "magnitud, no como cifra precisa.")
 
+# --- Verificacion con la base diaria -------------------------------------------------------------
+cons = pr.consistencia_diaria(obs, diaria, r.estimados)
+c9, c10 = st.columns([1.5, 1], gap="small")
+with c9, mosaico(
+    "m2-consistencia", "Verificación con la base diaria",
+    "Presencia diaria media de cada mes · franja gris: rango observado · violeta: implícita en la Estimación", "estimacion",
+    "**¿La estimación mensual es coherente con lo que se ve día a día?**\n\nLa guía pide usar la base diaria para "
+    "verificar el comportamiento dentro del mes (no para proyectarla). Se calcula la **rotación** = visitantes únicos "
+    "del mes / presencia diaria media en los meses con ambas bases completas. Si es estable, la estimación implica una "
+    "presencia diaria = estimación / rotación media, que debe caer en el rango observado. Ninguna base se suma.",
+):
+    if cons.attrs.get("rotacion_media"):
+        grafica(fig_consistencia_diaria(cons), "m2_consistencia")
+    else:
+        sin_datos("No hay meses completos con ambas bases para verificar la estimación.")
+with c10, st.container(key="tile-m2-lectura-diaria"):
+    st.html('<div class="ot-tt">Lectura de la verificación</div><div class="ot-ts">Base diaria · feriados sin cobertura</div>')
+    if cons.attrs.get("rotacion_media"):
+        lo, hi = cons.attrs["rango"]
+        imp = cons[cons["tipo"] == "Estimación"]["presencia_media"]
+        dentro = imp.between(lo * 0.95, hi * 1.05).all()
+        nota("observado", f"La rotación mensual es estable: {cons.attrs['rotacion_media']:.1f} visitantes únicos por cada "
+             f"presente diario (variación {cons.attrs['rotacion_cv']:.0%} entre meses).")
+        nota("estimacion", "Presencia diaria implícita: " + ", ".join(f"{MES_ES[t.month - 1]} {t.year} ≈ {formato_numero(v)}"
+             for t, v in imp.items()) + f" (rango observado {formato_numero(lo)}–{formato_numero(hi)}). "
+             + ("**Consistente** con la forma diaria de los meses observados." if dentro else
+                "**Fuera** del rango observado: revise el método antes de usar la estimación."))
+    nota("interpretacion", "La base diaria no cubre enero ni febrero de 2026: los feriados de esos meses (1 de enero, "
+         "Año Nuevo) se declaran **ausentes** y no se estiman; la serie diaria no se proyecta.")
+
 # --- Hilo hacia el siguiente modulo --------------------------------------------------------------
 siguiente(
     "paginas/m3_oferta.py", "Módulo 3 · Oferta hotelera",
-    "Con los picos identificados, la pregunta es si <b>alcanza la capacidad hotelera</b> de Sololá para las "
-    "noches que se demandan. El módulo 3 cruza la oferta formal con la demanda de noches.",
+    "Con los picos identificados, la pregunta es <b>dónde duermen</b> los visitantes: el módulo 3 cruza la "
+    "capacidad y la ocupación de Sololá con las noches que registra la telefonía.",
     ":material/hotel:",
 )

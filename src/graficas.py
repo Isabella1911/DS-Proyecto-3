@@ -182,6 +182,25 @@ def fig_mensual_estimada(obs: pd.Series, estimados: pd.Series) -> go.Figure:
     return aplicar_estilo(fig, alto=380)
 
 
+def fig_consistencia_diaria(t: pd.DataFrame) -> go.Figure:
+    """Presencia diaria media por mes: observada (base diaria) e implicita en cada estimacion (violeta)."""
+    obs, est = t[t["tipo"] == "Observado"], t[t["tipo"] == "Estimación"]
+    fig = go.Figure()
+    fig.add_bar(x=[_mes(i) for i in obs.index], y=obs["presencia_media"], name="Observada (base diaria)",
+                marker_color=COLOR_HISTORIA, hovertemplate="%{x}<br>%{y:,.0f} presentes por día<extra>Observada</extra>")
+    fig.add_bar(x=[_mes(i) for i in est.index], y=est["presencia_media"], name="Implícita en la Estimación",
+                marker=dict(color="white", line=dict(color=COLOR_ESTIMADO, width=2), pattern=dict(shape="/", fgcolor=COLOR_ESTIMADO)),
+                text=["Estimación"] * len(est), textposition="outside", textfont=dict(color=COLOR_ESTIMADO, size=11),
+                hovertemplate="%{x}<br>%{y:,.0f} presentes por día<extra>Estimación</extra>")
+    lo, hi = t.attrs.get("rango", (None, None))
+    if lo is not None:
+        fig.add_hrect(y0=lo, y1=hi, fillcolor=COLOR_HISTORIA, opacity=0.12, line_width=0)
+    orden = [_mes(i) for i in t.sort_index().index]
+    fig.update_xaxes(categoryorder="array", categoryarray=orden, type="category")
+    fig.update_yaxes(title_text="Presencia diaria media", tickformat=",.0f", rangemode="tozero")
+    return aplicar_estilo(fig, alto=320)
+
+
 def fig_validacion(val: pd.DataFrame) -> go.Figure:
     fig = go.Figure()
     fig.add_bar(x=val.index, y=val["observado"], name="Observado", marker_color=COLOR_REAL,
@@ -267,27 +286,85 @@ def fig_afluencia_relativa(rel: pd.Series) -> go.Figure:
 # Modulo 4 (base)
 
 
-def fig_cuadrante(perfil: pd.DataFrame, seleccionado: str | None) -> go.Figure:
+def fig_cuadrante(perfil: pd.DataFrame, seleccionado: str | None, cortes: dict | None = None) -> go.Figure:
+    """Volumen (x, log) x estadia media (y); tamano = especializacion extranjera (IEE, lago = 1).
+
+    Las lineas punteadas son los umbrales de la regla: volumen del hub y estadia de larga estancia."""
     fig = go.Figure()
     for clase, g in perfil.groupby("clase"):
+        iee = g["iee"].fillna(1.0)
         fig.add_scatter(
             x=g["visitantes_mes"], y=g["estadia_media"], mode="markers+text", name=clase,
-            text=[MUNICIPIO_CORTO.get(m, m) for m in g.index], textposition="top center",
-            customdata=list(zip(g.index, g["pct_extranjeros"])),
-            marker=dict(size=12 + 40 * g["pct_extranjeros"], color=COLORES_CLASE.get(clase, COLOR_HISTORIA), opacity=0.85,
-                        symbol=SIMBOLOS_CLASE.get(clase, "circle"),
+            text=[MUNICIPIO_CORTO.get(m, m) for m in g.index],
+            textposition=["bottom center" if m in ("San Antonio Palopó", "San Lucas Tolimán") else "top center" for m in g.index],
+            customdata=list(zip(g.index, iee)),
+            marker=dict(size=(10 + 22 * iee.clip(upper=2.2)).tolist(), color=COLORES_CLASE.get(clase, COLOR_HISTORIA),
+                        opacity=0.85, symbol=SIMBOLOS_CLASE.get(clase, "circle"),
                         line=dict(color=["#161616" if m == seleccionado else "white" for m in g.index],
                                   width=[3 if m == seleccionado else 1 for m in g.index])),
             hovertemplate="<b>%{customdata[0]}</b><br>%{x:,.0f} visitantes/mes<br>estadía %{y:.2f} días"
-                          "<br>%{customdata[1]:.0%} extranjeros<extra>" + clase + "</extra>",
+                          "<br>especialización extranjera %{customdata[1]:.2f} (lago = 1)<extra>" + clase + "</extra>",
         )
-    fig.add_vline(x=perfil["visitantes_mes"].median(), line=dict(color=COLOR_HISTORIA, dash="dot", width=1))
-    fig.add_hline(y=perfil["estadia_media"].median(), line=dict(color=COLOR_HISTORIA, dash="dot", width=1))
+    c = cortes or {"volumen_hub": perfil["visitantes_mes"].median(), "estadia_larga": perfil["estadia_media"].median()}
+    fig.add_vline(x=c["volumen_hub"], line=dict(color=COLOR_HISTORIA, dash="dot", width=1),
+                  annotation_text="umbral hub", annotation_position="top left", annotation_font_size=10)
+    fig.add_hline(y=c["estadia_larga"], line=dict(color=COLOR_HISTORIA, dash="dot", width=1),
+                  annotation_text="umbral larga estancia (P75)", annotation_position="top left", annotation_font_size=10)
     fig.update_xaxes(title_text="Volumen: visitantes promedio por mes (escala log)", type="log", tickformat=",.0f",
-                     tickvals=[500, 1000, 2000, 5000, 10000, 20000, 50000])
+                     tickvals=[500, 1000, 2000, 5000, 10000, 20000, 50000, 100000, 200000, 500000])
     fig.update_yaxes(title_text="Estadía media ponderada (días)")
     fig.update_layout(clickmode="event+select", dragmode=False)
     return aplicar_estilo(fig, alto=460)
+
+
+def fig_mapa_pueblos(m: pd.DataFrame, clases: pd.Series, coordenadas: dict[str, tuple[float, float]]) -> go.Figure:
+    """Mapa del lago con el peso de cada pueblo, animado mes a mes (boton Reproducir / deslizador).
+
+    Tamano = visitantes unicos del mes en el municipio (escala fija en todos los cuadros para que el
+    crecimiento se vea). No se suman pueblos: cada burbuja es su propio conteo. Ene-feb 2026 no tienen
+    cobertura y no aparecen como cuadros (nunca como cero)."""
+    t = m.groupby(["periodo", "municipio"], as_index=False)["visitantes"].sum()
+    t = t[t["municipio"].isin(coordenadas)]
+    t["lat"] = t["municipio"].map(lambda x: coordenadas[x][0])
+    t["lon"] = t["municipio"].map(lambda x: coordenadas[x][1])
+    t["clase"] = t["municipio"].map(clases).fillna("")
+    t["corto"] = t["municipio"].map(lambda x: MUNICIPIO_CORTO.get(x, x))
+    maximo = float(t["visitantes"].max()) or 1.0
+    periodos = sorted(t["periodo"].unique())
+
+    def trazas(periodo):
+        g = t[t["periodo"] == periodo]
+        out = []
+        for clase in ["Hub comercial", "Larga estancia", "Visita corta"]:
+            h = g[g["clase"] == clase]
+            out.append(go.Scattermap(
+                lat=h["lat"], lon=h["lon"], mode="markers+text", name=clase, text=h["corto"], textposition="top center",
+                textfont=dict(size=11, color="#161616"),
+                marker=dict(size=(8 + 52 * (h["visitantes"] / maximo) ** 0.5).tolist(), color=COLORES_CLASE.get(clase), opacity=0.8),
+                customdata=list(zip(h["municipio"], h["visitantes"])),
+                hovertemplate="<b>%{customdata[0]}</b><br>%{customdata[1]:,.0f} visitantes en el mes<extra>" + clase + "</extra>",
+            ))
+        return out
+
+    fig = go.Figure(data=trazas(periodos[0]),
+                    frames=[go.Frame(data=trazas(p), name=_mes(pd.Timestamp(p))) for p in periodos])
+    pasos = [dict(method="animate", label=_mes(pd.Timestamp(p)),
+                  args=[[_mes(pd.Timestamp(p))], dict(mode="immediate", frame=dict(duration=0, redraw=True), transition=dict(duration=0))])
+             for p in periodos]
+    fig.update_layout(
+        map=dict(style="carto-positron", center=dict(lat=14.69, lon=-91.20), zoom=10.3),
+        updatemenus=[dict(type="buttons", showactive=False, direction="right", x=0, y=0, xanchor="left", yanchor="top",
+                          pad=dict(t=8),
+                          buttons=[dict(label="▶ Reproducir", method="animate",
+                                        args=[None, dict(frame=dict(duration=900, redraw=True), fromcurrent=True, transition=dict(duration=0))]),
+                                   dict(label="❚❚", method="animate",
+                                        args=[[None], dict(frame=dict(duration=0, redraw=False), mode="immediate")])])],
+        sliders=[dict(active=0, steps=pasos, x=0, len=1, y=0, yanchor="top", pad=dict(t=52, b=0),
+                      currentvalue=dict(prefix="Mes: ", font=dict(size=12)))],
+    )
+    aplicar_estilo(fig, alto=560)
+    fig.update_layout(margin=dict(l=0, r=0, t=8, b=125), legend=dict(orientation="h", y=1.02, x=0, yanchor="bottom"))
+    return fig
 
 
 def fig_mensual_origen(m: pd.DataFrame) -> go.Figure:
@@ -323,27 +400,42 @@ def fig_heatmap_ocupacion(matriz: pd.DataFrame) -> go.Figure:
     return aplicar_estilo(fig, alto=260)
 
 
-def fig_cruce_ventana(cruce: pd.DataFrame) -> go.Figure:
-    """Dos paneles: noches (demandadas vs capacidad formal) y tasas (implicita vs oficial)."""
-    x = [_mes(t) for t in cruce.index]
-    fig = make_subplots(rows=1, cols=2, horizontal_spacing=0.14,
-                        subplot_titles=("Noches", "Tasas"))
-    fig.add_bar(x=x, y=cruce["plazas_noche"], name="Plazas-noche disponibles", marker_color="#d0d0d0", row=1, col=1,
-                hovertemplate="%{x}<br>%{y:,.0f} plazas-noche<extra></extra>")
-    fig.add_bar(x=x, y=cruce["noches_demandadas"], name="Noches demandadas (turistas)", marker_color=COLOR_REAL, row=1, col=1,
-                hovertemplate="%{x}<br>%{y:,.0f} noches<extra></extra>")
-    fig.add_scatter(x=x, y=cruce["ocupacion_oficial"], name="Ocupación oficial", mode="lines+markers",
-                    line=dict(color=COLOR_OCUPACION, width=2.5), row=1, col=2, hovertemplate="%{x}<br>%{y:.0%}<extra>Oficial</extra>")
-    fig.add_scatter(x=x, y=cruce["tasa_implicita"], name="Tasa implícita (noches / plazas-noche)", mode="lines+markers",
-                    line=dict(color=COLOR_REAL, width=2, dash="dot"), row=1, col=2,
-                    hovertemplate="%{x}<br>%{y:.0%}<extra>Implícita</extra>")
-    fig.update_layout(barmode="overlay")
+def fig_cruce_ventana(cruce: pd.DataFrame, etiqueta_tel: str, etiqueta_hotel: str) -> go.Figure:
+    """Dos paneles para UN origen: noches (telefonia vs hoteleria formal) y captacion formal (%).
+
+    Noches y porcentajes nunca comparten eje."""
+    x = [_mes(t) for t in cruce["periodo"]]
+    fig = make_subplots(rows=1, cols=2, horizontal_spacing=0.14, column_widths=[0.6, 0.4],
+                        subplot_titles=("Noches en el mes", "Captación formal"))
+    fig.add_bar(x=x, y=cruce["noches_telefonia"], name=etiqueta_tel, marker_color="#d0d0d0", row=1, col=1,
+                hovertemplate="%{x}<br>%{y:,.0f} noches<extra>Telefonía</extra>")
+    fig.add_bar(x=x, y=cruce["noches_hotel"], name=etiqueta_hotel, marker_color=COLOR_REAL, row=1, col=1,
+                hovertemplate="%{x}<br>%{y:,.0f} noches<extra>Hotelería formal</extra>")
+    fig.add_scatter(x=x, y=cruce["captacion_formal"], name="Noches en hotel formal / noches por telefonía",
+                    mode="lines+markers+text", text=[f"{v:.0%}" for v in cruce["captacion_formal"]], textposition="top center",
+                    line=dict(color=COLOR_OCUPACION, width=2.5), row=1, col=2,
+                    hovertemplate="%{x}<br>%{y:.1%}<extra>Captación</extra>")
+    fig.update_layout(barmode="group")
     fig.update_yaxes(tickformat=",.0f", row=1, col=1)
-    fig.update_yaxes(tickformat=".0%", rangemode="tozero", row=1, col=2)
+    tope = float(cruce["captacion_formal"].max()) if cruce["captacion_formal"].notna().any() else 1.0
+    fig.update_yaxes(tickformat=".0%", range=[0, max(tope * 1.3, 0.1)], row=1, col=2)
     fig.update_annotations(font=dict(size=12))
     aplicar_estilo(fig, alto=380)
     fig.update_layout(legend=dict(orientation="h", yanchor="top", y=-0.18, x=0, xanchor="left"), margin=dict(b=8, t=28))
     return fig
+
+
+def fig_barras_pct(serie: pd.Series, titulo_x: str, destacar: list[str] | None = None, alto: int = 300) -> go.Figure:
+    """Barras horizontales de porcentajes muestrales (encuesta sin factor de expansion)."""
+    serie = serie.sort_values()
+    colores = [COLOR_DESTACADO if (destacar and k in destacar) else COLOR_HISTORIA for k in serie.index]
+    fig = go.Figure(go.Bar(
+        y=serie.index, x=serie.values, orientation="h", marker_color=colores,
+        text=[f"{v:.0%}" for v in serie.values], textposition="outside", cliponaxis=False,
+        hovertemplate="%{y}: %{x:.1%} de los encuestados<extra></extra>",
+    ))
+    fig.update_xaxes(tickformat=".0%", range=[0, min(1, float(serie.max()) * 1.25)], title_text=titulo_x)
+    return aplicar_estilo(fig, alto=alto)
 
 
 def fig_capacidad_anual(anual: pd.DataFrame, medida: str, anio_sel: int | None) -> go.Figure:
@@ -366,7 +458,7 @@ def fig_capacidad_anual(anual: pd.DataFrame, medida: str, anio_sel: int | None) 
 COLUMNAS_MATRIZ = {
     "visitantes_mes": ("Visitantes/mes", ",.0f"),
     "estadia_media": ("Estadía media", ".2f"),
-    "pct_extranjeros": ("% extranjeros", ".0%"),
+    "iee": ("Especialización extranjera", ".2f"),
     "pct_excursionistas": ("% excursionistas", ".0%"),
     "presion_finde": ("Presión finde", ".2f"),
     "lift_max": ("Lift máx. festividad", "+.0%"),
@@ -437,3 +529,23 @@ def fig_estacionalidad_clase(t: pd.DataFrame) -> go.Figure:
     fig.update_yaxes(title_text="Índice (promedio = 100)")
     fig.update_xaxes(dtick="M1", tickformat="%b\n%Y")
     return aplicar_estilo(fig, alto=300)
+
+
+def fig_cobertura(t: pd.DataFrame, marcar: list[str] | None = None) -> go.Figure:
+    """Indicador de cobertura: que fuentes respaldan cada mes (gris claro = sin dato, nunca cero)."""
+    x = [_mes(c) for c in t.columns]
+    texto = [["con dato" if v == 1 else "parcial (ventanas de evento)" if v == 0.5 else "sin dato" for v in fila]
+             for fila in t.values]
+    fig = go.Figure(go.Heatmap(
+        z=t.fillna(0).values, x=x, y=list(t.index), zmin=0, zmax=1, showscale=False, xgap=1, ygap=3,
+        colorscale=[[0, "#f2f2f2"], [0.5, "#9ec5f4"], [1, "#184f95"]], customdata=texto,
+        hovertemplate="%{y} · %{x}: %{customdata}<extra></extra>",
+    ))
+    for per in marcar or []:
+        ts = pd.Timestamp(per + "-01")
+        if ts in t.columns:
+            i = list(t.columns).index(ts)
+            fig.add_vrect(x0=i - 0.5, x1=i + 0.5, line=dict(color=COLOR_ESTIMADO, width=2), fillcolor="rgba(0,0,0,0)")
+    fig.update_yaxes(autorange="reversed", showgrid=False)
+    fig.update_xaxes(showgrid=False, tickangle=-60, tickfont=dict(size=10), type="category")
+    return aplicar_estilo(fig, alto=290)

@@ -10,10 +10,10 @@ import streamlit as st
 
 from src import indicadores as ind
 from src import oferta as of
-from src.datos import CONFIG, corto, origenes, tabla
+from src.datos import CONFIG, corto, origenes, tabla, tabla_opcional
 from src.estilo import formato_numero
 from src.graficas import (
-    MES_ES, fig_afluencia_relativa, fig_capacidad, fig_capacidad_anual, fig_cruce_ventana, fig_heatmap_ocupacion,
+    MES_ES, fig_afluencia_relativa, fig_barras_pct, fig_capacidad, fig_capacidad_anual, fig_cruce_ventana, fig_heatmap_ocupacion,
     fig_ocupacion,
 )
 from src.normalizar import departamento
@@ -23,13 +23,16 @@ DEPTO = departamento(CONFIG["destino"]["departamento"])
 oferta = tabla("oferta")
 ocup = tabla("ocupacion")
 m = tabla("mensual")
+boletin = tabla_opcional("boletin_hotelero")
+frontera = tabla_opcional("frontera_destino")
 
 encabezado_pagina(
     "Módulo 3 · Oferta",
     "Oferta hotelera y desagregación territorial",
-    f"¿Alcanza la capacidad de alojamiento de {DEPTO} para la demanda del lago? Capacidad instalada, ocupación "
-    "mensual y su cruce con la afluencia en la única ventana en que ambas series coinciden.",
-    f"Oferta 2022–2026 · Ocupación 2023–2025<br>Departamento: <b>{DEPTO}</b>",
+    f"¿Alcanza la capacidad de alojamiento de {DEPTO} y dónde duermen los visitantes del lago? Capacidad instalada, "
+    "ocupación mensual, su cruce con la afluencia en la única ventana en que coinciden (sep–dic 2025) y el tipo de "
+    "alojamiento que declaran quienes entran al país rumbo al lago.",
+    f"Oferta 2022–2026 · Ocupación y boletines 2023–2025<br>Encuesta en fronteras · Departamento: <b>{DEPTO}</b>",
 )
 aviso_sinteticos(origenes())
 
@@ -49,7 +52,8 @@ a0, a1 = anual.index.min(), anual.index.max()
 ult_anio_ocup = o_dep.index.year.max()
 ocup_anio = o_dep[o_dep.index.year == ult_anio_ocup]
 v0, v1 = (pd.Timestamp(p + "-01") for p in CONFIG["ventana_coincidente"])
-cruce = of.cruce_ventana(m, anual, o_dep, (v0, v1))
+cruce = of.cruce_ventana(m, boletin, o_dep, (v0, v1))
+res_cruce = of.resumen_cruce(cruce)
 indicadores([
     {"etiqueta": f"Plazas cama {a1}", "valor": formato_numero(anual.loc[a1, "plazas_cama"]),
      "delta": anual.loc[a1, "plazas_cama"] / anual.loc[a0, "plazas_cama"] - 1, "delta_texto": f"frente a {a0}",
@@ -59,8 +63,10 @@ indicadores([
      "serie": anual["establecimientos"].tolist()},
     {"etiqueta": f"Ocupación promedio {ult_anio_ocup}", "valor": f"{ocup_anio.mean():.0%}",
      "contexto": f"pico: {MES_ES[ocup_anio.idxmax().month - 1]} ({ocup_anio.max():.0%})", "serie": o_dep.tolist()},
-    {"etiqueta": "Tasa implícita sep–dic 2025", "valor": f"{cruce['tasa_implicita'].mean():.0%}" if len(cruce) else "Sin dato",
-     "contexto": f"ocupación oficial: {cruce['ocupacion_oficial'].mean():.0%}" if len(cruce) else ""},
+    {"etiqueta": "Captación formal de noches extranjeras", "valor":
+        f"{res_cruce.loc['Extranjero', 'captacion']:.0%}" if "Extranjero" in res_cruce.index else "Sin dato",
+     "contexto": (f"sep–dic 2025 · nacionales: {res_cruce.loc['Nacional', 'captacion']:.1%}"
+                  if "Nacional" in res_cruce.index else "requiere los boletines de ocupación (PDF)")},
 ])
 
 # --- Capacidad (enlazada con ocupacion) -------------------------------------------------------------
@@ -108,7 +114,10 @@ with c3, mosaico(
 ):
     grafica(fig_capacidad(cap, medida), "m3_cap")
     if len(parcial):
-        st.caption(f"Corte parcial: {parcial['repite_previo'].mean():.0%} de los tipos de alojamiento repiten el valor anterior.")
+        rep_dep = parcial["repite_previo"].mean()
+        st.caption(f"Corte parcial (2026-T1): {rep_dep:.0%} de los tipos de alojamiento de {DEPTO} repiten el valor anterior"
+                   + (" (en el país, cerca de la mitad de las combinaciones lo hace). Aun así es un levantamiento de "
+                      "tres meses y no entra al crecimiento." if rep_dep == 0 else "."))
 
 matriz = of.matriz_ocupacion(ocup, DEPTO)
 with c4, mosaico(
@@ -121,55 +130,111 @@ with c4, mosaico(
     st.caption(f"Meses más llenos en promedio: {', '.join(MES_ES[i - 1] for i in perfil_mes.nlargest(3).index)}. "
                f"Más vacíos: {', '.join(MES_ES[i - 1] for i in perfil_mes.nsmallest(3).index)}.")
 
-# --- Ventana coincidente ---------------------------------------------------------------------------
+# --- Ventana coincidente: triangulacion telefonia x hoteleria formal ------------------------------------
+ORIGENES_CRUCE = {"Extranjeros · no residentes": "Extranjero", "Nacionales · residentes": "Nacional"}
 c5, c6 = st.columns([1.5, 1], gap="small")
 with c5, mosaico(
-    "m3-ventana", "Ventana coincidente: demanda de noches vs. capacidad", f"{MES_ES[v0.month - 1]}–{MES_ES[v1.month - 1]} {v1.year}, "
-    "únicos meses con telefonía y ocupación", "observado",
-    "**¿La capacidad formal alcanza para las noches que pasan los turistas en el lago?**\n\n"
-    "- **Noches demandadas** = Σ días-persona de los turistas con pernocta (suma de los 10 municipios).\n"
-    "- **Plazas-noche** = plazas cama del corte del año × días del mes.\n"
-    "- **Tasa implícita** = noches demandadas / plazas-noche, comparable con la ocupación oficial.\n\n"
-    f"Noches y porcentajes van en paneles separados. Solo {len(cruce)} meses: la lectura es indicativa.",
+    "m3-ventana", "Ventana coincidente: ¿qué parte de las noches pasa por un hotel formal?",
+    f"{MES_ES[v0.month - 1]}–{MES_ES[v1.month - 1]} {v1.year}, únicos meses con telefonía y ocupación · por origen",
+    "observado",
+    "**¿Cuántas de las noches que pasan los turistas en el lago quedan registradas en la hotelería formal?**\n\n"
+    "- **Noches por telefonía** = Σ (días-persona − visitantes) de los turistas con pernocta: quien está *d* días "
+    "pasa *d* − 1 noches. Suma de los 10 municipios (cota superior).\n"
+    f"- **Noches en hotel formal** = pernoctaciones registradas en los hoteles de {DEPTO}, del boletín anual de "
+    "ocupación del INGUAT (se extraen con código; el CSV solo trae el índice).\n"
+    "- **Captación formal** = noches en hotel / noches por telefonía. Como el denominador es una cota superior, "
+    "es una cota **inferior**.\n\n"
+    "Extranjeros se comparan con *no residentes* y nacionales con *residentes*, nunca mezclados. Noches y "
+    "porcentajes van en paneles separados. Solo 4 meses: la lectura es indicativa.",
 ):
-    if cruce.empty:
-        sin_datos("Falta alguna de las dos series en la ventana coincidente.")
+    eleccion = st.segmented_control("Origen", list(ORIGENES_CRUCE), default=list(ORIGENES_CRUCE)[0], key="m3_cruce_origen") \
+        or list(ORIGENES_CRUCE)[0]
+    origen_c = ORIGENES_CRUCE[eleccion]
+    g = cruce[cruce["origen"] == origen_c]
+    if g.empty or g["noches_hotel"].isna().all():
+        sin_datos("Faltan los boletines de ocupación hotelera (PDF) en la carpeta de datos: sin ellos no hay noches "
+                  "de hotel por residencia para cruzar con la telefonía.")
     else:
-        grafica(fig_cruce_ventana(cruce), "m3_ventana")
+        grafica(fig_cruce_ventana(g, "Noches por telefonía (turistas " + ("extranjeros)" if origen_c == "Extranjero" else "nacionales)"),
+                                  "Noches en hotel formal (" + ("no residentes)" if origen_c == "Extranjero" else "residentes)")),
+                "m3_ventana")
         with st.expander("Tabla de la ventana", icon=":material/table:"):
-            tab = cruce.rename(index=lambda t: f"{MES_ES[t.month - 1]} {t.year}")
-            st.dataframe(tab, width="stretch", column_config={
-                "turistas": st.column_config.NumberColumn("Turistas", format="localized"),
-                "noches_demandadas": st.column_config.NumberColumn("Noches demandadas", format="localized"),
-                "plazas_noche": st.column_config.NumberColumn("Plazas-noche", format="localized"),
-                "tasa_implicita": st.column_config.NumberColumn("Tasa implícita", format="percent"),
+            tab = g.assign(mes=[f"{MES_ES[t.month - 1]} {t.year}" for t in g["periodo"]]).set_index("mes")
+            st.dataframe(tab[["turistas_telefonia", "noches_telefonia", "huespedes_hotel", "noches_hotel", "captacion_formal",
+                              "ocupacion_oficial"]], width="stretch", column_config={
+                "turistas_telefonia": st.column_config.NumberColumn("Turistas (telefonía)", format="localized"),
+                "noches_telefonia": st.column_config.NumberColumn("Noches (telefonía)", format="localized"),
+                "huespedes_hotel": st.column_config.NumberColumn("Huéspedes en hotel", format="localized"),
+                "noches_hotel": st.column_config.NumberColumn("Noches en hotel", format="localized"),
+                "captacion_formal": st.column_config.NumberColumn("Captación formal", format="percent"),
                 "ocupacion_oficial": st.column_config.NumberColumn("Ocupación oficial", format="percent"),
-                "brecha": st.column_config.NumberColumn("Brecha (pp)", format="percent"),
             })
 with c6, st.container(key="tile-m3-lectura"):
-    st.html('<div class="ot-tt">Lectura del cruce</div><div class="ot-ts">Ventana coincidente</div>')
-    if len(cruce):
-        brecha = cruce["brecha"].mean()
-        r = cruce["noches_demandadas"].corr(cruce["ocupacion_oficial"]) if len(cruce) >= 3 else float("nan")
-        if pd.isna(r):
-            juntas = f"Con {len(cruce)} meses no se puede medir si se mueven juntas."
-        elif r >= 0.5:
-            juntas = f"Ambas se mueven juntas (correlación {r:.2f}, {len(cruce)} meses)."
-        else:
-            juntas = f"No se mueven juntas (correlación {r:.2f}, {len(cruce)} meses)."
-        nota("observado", f"Los turistas del lago demandan en promedio {formato_numero(cruce['noches_demandadas'].mean())} "
-             f"noches al mes, el {cruce['tasa_implicita'].mean():.0%} de las plazas-noche formales de {DEPTO}; la ocupación "
-             f"oficial fue {cruce['ocupacion_oficial'].mean():.0%}. {juntas}")
-        if brecha > 0:
-            nota("interpretacion", "La tasa implícita **supera** a la oficial: parte de las noches ocurre fuera de la "
-                 "hotelería formal registrada (plataformas digitales como Airbnb, casas de familia) o la suma de "
-                 "municipios duplica turistas que se movieron entre pueblos.")
-        else:
-            nota("interpretacion", "La tasa implícita **queda por debajo** de la oficial: los hoteles de "
-                 f"{DEPTO} también reciben huéspedes que la telefonía del lago no capta (otros municipios del "
-                 "departamento, viajeros de negocios) o hay visitantes sin teléfono detectado.")
-    nota("interpretacion", "Hotelería formal y plataformas digitales son universos distintos: este cruce no sustituye un "
-         "registro de alojamiento no formal.")
+    st.html('<div class="ot-tt">Lectura del cruce</div><div class="ot-ts">Ventana coincidente · tres fuentes</div>')
+    if res_cruce.empty:
+        nota("interpretacion", "Sin los boletines solo puede compararse la ocupación oficial; agregue los PDF para "
+             "medir la captación formal por origen.")
+    else:
+        for origen_r, fila in res_cruce.iterrows():
+            quien = "extranjeros" if origen_r == "Extranjero" else "nacionales"
+            juntas = (f"ambas series se mueven juntas (r = {fila['correlacion']:.2f})" if fila["correlacion"] >= 0.5
+                      else f"las series no se mueven juntas (r = {fila['correlacion']:.2f})") if pd.notna(fila["correlacion"]) else ""
+            nota("observado", f"**{quien.capitalize()}:** la telefonía registra {formato_numero(fila['noches_telefonia_mes'])} "
+                 f"noches al mes y los hoteles formales {formato_numero(fila['noches_hotel_mes'])}: captación de "
+                 f"**{fila['captacion']:.1%}**" + (f"; {juntas}." if juntas else "."))
+        if {"Extranjero", "Nacional"} <= set(res_cruce.index):
+            ce, cn = res_cruce.loc["Extranjero", "captacion"], res_cruce.loc["Nacional", "captacion"]
+            nota("interpretacion", f"La hotelería formal capta una parte importante del turismo extranjero ({ce:.0%}) pero "
+                 f"casi nada de la presencia nacional con pernocta ({cn:.1%}): la mayoría de esas noches ocurre en casas de "
+                 "familia, alojamiento no registrado o plataformas digitales, o corresponde a presencia no turística que la "
+                 "telefonía no distingue. La ocupación oficial describe al turismo extranjero mucho mejor que al nacional.")
+        nota("observado", f"Ocupación oficial de la ventana: {cruce.drop_duplicates('periodo')['ocupacion_oficial'].mean():.0%} "
+             f"(el boletín coincide con el CSV en todos los meses comparados).")
+    nota("interpretacion", "Hotelería formal y plataformas digitales son universos distintos: este cruce mide cuánto "
+         "capta el registro formal, no la capacidad total de alojamiento del lago.")
+
+# --- Encuesta en fronteras: donde se alojan quienes van al lago ------------------------------------------
+if frontera is not None and not frontera.empty:
+    olas = frontera.groupby("ola").agg(encuestas=("encuestas", "sum"), desde=("desde", "min"), hasta=("hasta", "max"))
+    ola_actual = olas["hasta"].idxmax()
+    f_act = frontera[frontera["ola"] == ola_actual]
+    n_act = int(f_act["encuestas"].sum())
+    o = olas.loc[ola_actual]
+    periodo_ola = f"{MES_ES[o['desde'].month - 1]} {o['desde'].year} – {MES_ES[o['hasta'].month - 1]} {o['hasta'].year}"
+    hosp = f_act.groupby("hospedaje")["encuestas"].sum().drop(index=["N/A"], errors="ignore")
+    hosp = hosp / hosp.sum()
+    puesto = f_act.groupby("puesto")["encuestas"].sum() / n_act
+    puesto = puesto.nlargest(5)
+    airbnb_olas = (frontera[frontera["hospedaje"].str.contains("Airbnb", na=False)].groupby("ola")["encuestas"].sum()
+                   / frontera.groupby("ola")["encuestas"].sum()).dropna()
+    c9, c10, c11 = st.columns([1, 1, 0.9], gap="small")
+    with c9, mosaico(
+        "m3-hosp", "¿Dónde dicen alojarse quienes van al lago?",
+        f"Encuesta en fronteras, ola {ola_actual} ({periodo_ola}) · {n_act:,} encuestas · % muestral", "observado",
+        "**Tipo de alojamiento declarado** por los viajeros que, al entrar al país, dicen ir al Lago de Atitlán "
+        "(BD complementaria). Es una muestra por cuotas **sin factor de expansión**: se reporta solo como porcentaje "
+        "de los encuestados y nunca como total de visitantes. Se usa la ola más reciente porque coincide con la "
+        "telefonía.",
+    ):
+        grafica(fig_barras_pct(hosp, "% de los encuestados",
+                               destacar=[h for h in hosp.index if "Airbnb" in h]), "m3_hosp")
+    with c10, mosaico(
+        "m3-puesto", "¿Por dónde entran al país?", f"Puesto fronterizo de ingreso · ola {ola_actual} · top 5", "observado",
+        "**Puerta de ingreso al país** de quienes declaran ir al lago. La encuesta se levanta sobre todo en puestos "
+        "terrestres: el aeropuerto está subrepresentado y el porcentaje no describe a todos los visitantes del lago.",
+    ):
+        grafica(fig_barras_pct(puesto.rename(index=lambda x: x.title()), "% de los encuestados"), "m3_puesto")
+    with c11, st.container(key="tile-m3-frontera"):
+        st.html('<div class="ot-tt">Lectura de la encuesta</div><div class="ot-ts">Fuente complementaria · porcentajes muestrales</div>')
+        formal = hosp[[h for h in hosp.index if "Hotel" in h]].sum()
+        plataformas = hosp[[h for h in hosp.index if "Airbnb" in h]].sum()
+        nota("observado", f"En la ola {ola_actual}, el {formal:.0%} de los encuestados que van al lago declara hotel o "
+             f"similar y el {plataformas:.0%} Airbnb o similar. **{puesto.index[0].title()}** concentra el "
+             f"{puesto.iloc[0]:.0%} de los ingresos encuestados.")
+        if len(airbnb_olas) > 1:
+            nota("interpretacion", f"El peso de Airbnb varía entre {airbnb_olas.min():.0%} y {airbnb_olas.max():.0%} según la "
+                 "ola: cambian las cuotas y los puestos encuestados, así que **no se lee como tendencia**. Lo robusto es "
+                 "que en todas las olas existe un segmento de plataformas que la oferta hotelera formal no registra.")
 
 # --- Subdestinos -----------------------------------------------------------------------------------
 c7, c8 = st.columns([1.3, 1], gap="small")

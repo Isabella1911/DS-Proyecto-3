@@ -90,9 +90,10 @@ with col_b:
          "contexto": f"excursionistas: {1 - k['pct_turistas']:.0%}"},
     ])
     nota("observado",
-         f"{nombre_ambito}: {formato_numero(k['visitantes_mes'])} visitantes por mes en promedio; "
-         f"el {k['pct_extranjeros']:.0%} son extranjeros. Los turistas que pernoctan se quedan "
-         f"{k['estadia_media']:.1f} días en promedio.")
+         f"{nombre_ambito}: {formato_numero(k['visitantes_mes'])} visitantes por mes en promedio, de ellos "
+         f"{formato_numero(k['nacionales_mes'])} nacionales (con factor de expansión) y "
+         f"{formato_numero(k['extranjeros_mes'])} extranjeros, que se reportan por separado. Los turistas que "
+         f"pernoctan se quedan {k['estadia_media']:.1f} días en promedio.")
     if es_suma:
         nota("interpretacion", "Con varios municipios, los volúmenes son la **suma de municipios**: una cota superior "
              "del total del lago. La estadía media y los porcentajes sí son comparables porque son cocientes.")
@@ -161,8 +162,10 @@ with c4, st.container(key="tile-m1-lectura"):
         st.dataframe(
             perfil.rename(index=corto).rename(columns={
                 "visitantes_mes": "Visitantes/mes", "dias_persona_mes": "Días-persona/mes", "estadia_media": "Estadía media",
-                "pct_extranjeros": "% extranjeros", "pct_turistas": "% turistas"}),
-            column_config={"% extranjeros": st.column_config.NumberColumn(format="percent"),
+                "extranjeros_mes": "Extranjeros/mes", "iee": "Especialización extranjera (lago = 1)",
+                "pct_turistas": "% turistas"}),
+            column_config={"Extranjeros/mes": st.column_config.NumberColumn(format="localized"),
+                           "Especialización extranjera (lago = 1)": st.column_config.NumberColumn(format="%.2f"),
                            "% turistas": st.column_config.NumberColumn(format="percent"),
                            "Estadía media": st.column_config.NumberColumn(format="%.2f"),
                            "Visitantes/mes": st.column_config.NumberColumn(format="localized"),

@@ -66,6 +66,18 @@ _CSS = """
 .ot-clic { color: #0f62fe; background: #ffffff; border: 1px solid #0f62fe; line-height: 1rem; }
 .ot-chip { font-size: .6875rem; line-height: 1.1rem; padding: 0 .5rem; background: #161616; color: #ffffff; white-space: nowrap; max-width: 22rem; overflow: hidden; text-overflow: ellipsis; }
 
+/* tabla de recomendaciones (conclusiones) */
+.ot-tabla-recs { width: 100%; border-collapse: collapse; font-size: .8125rem; color: #393939; }
+.ot-tabla-recs th { text-align: left; font-weight: 600; color: #161616; border-bottom: 2px solid #161616; padding: .4rem .5rem; }
+.ot-tabla-recs td { vertical-align: top; border-bottom: 1px solid #e0e0e0; padding: .5rem; line-height: 1.45; }
+.ot-tabla-recs .ot-tag { background: #e8e8e8; color: #161616; display: inline-block; margin-top: .3rem; }
+@media (max-width: 640px) {
+  .ot-tabla-recs thead { display: none; }
+  .ot-tabla-recs tr, .ot-tabla-recs td { display: block; width: 100%; }
+  .ot-tabla-recs td { border-bottom: none; padding: .25rem 0; }
+  .ot-tabla-recs tr { border-bottom: 1px solid #e0e0e0; padding: .4rem 0; }
+}
+
 /* indicadores */
 .ot-kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr)); gap: .75rem; }
 .ot-kpi { background: #ffffff; border: 1px solid #e0e0e0; padding: .9rem 1rem .8rem; display: flex; flex-direction: column; gap: .2rem; }

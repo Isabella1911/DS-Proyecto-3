@@ -1,6 +1,6 @@
 """Modulo 4 · Red territorial y caracterizacion de los 10 municipios (reto del grupo 3).
 
-Cuadrante analitico volumen x estadia media x % extranjeros que clasifica a los pueblos en hubs
+Cuadrante analitico volumen x estadia media x especializacion extranjera (IEE) que clasifica a los pueblos en hubs
 comerciales (puertas de entrada), larga estancia/retiro y visita corta; la clasificacion por regla se
 contrasta con k-medias y se valida con la dinamica diaria (fin de semana y festividades) de cada pueblo.
 Vista enlazada: un clic en un municipio del cuadrante abre su perfil y lo marca en la matriz.
@@ -16,7 +16,7 @@ from src import territorio as te
 from src.datos import corto, origenes, tabla
 from src.estilo import COLORES_CLASE, formato_numero
 from src.graficas import (
-    fig_cuadrante, fig_estacionalidad_clase, fig_huella_semanal, fig_matriz_perfiles, fig_mensual_origen,
+    fig_cuadrante, fig_mapa_pueblos, fig_estacionalidad_clase, fig_huella_semanal, fig_matriz_perfiles, fig_mensual_origen,
     fig_mercados_clase, fig_patron_semanal, fig_top_paises,
 )
 from src.normalizar import MUNICIPIOS
@@ -32,13 +32,14 @@ def _perfil(m, d):
 
 
 perfil = _perfil(m, d)
+cortes = te.cortes_regla(perfil)
 
 encabezado_pagina(
     "Módulo 4 · Reto del destino",
     "Red territorial de los 10 municipios",
-    "¿Qué papel juega cada pueblo del lago? Se distinguen las puertas de entrada (mucho volumen), los destinos de "
-    "larga estancia (pocos visitantes, mayoría extranjera, muchas noches) y los de visita corta (excursiones, sobre "
-    "todo de nacionales y en fin de semana).",
+    "¿Qué papel juega cada pueblo del lago? Se distinguen las puertas de entrada o hubs (concentran el flujo), los "
+    "destinos de larga estancia (estadías en el cuartil superior y más peso extranjero que el lago) y los de visita "
+    "corta. El mapa muestra el peso de cada pueblo mes a mes.",
     "Telefonía mensual y diaria<br><b>10 municipios</b>",
 )
 aviso_sinteticos(origenes())
@@ -46,8 +47,8 @@ aviso_sinteticos(origenes())
 with barra_filtros("m4"):
     metodo = st.segmented_control(
         "Clasificación", ["Regla del cuadrante", "k-medias"], default="Regla del cuadrante", key="m4_metodo",
-        help="Regla: cortes interpretables sobre volumen, estadía y % extranjeros. k-medias: agrupa a los pueblos "
-        "por parecido en 4 variables estandarizadas, sin reglas fijas; sirve de contraste.",
+        help="Regla: cortes interpretables sobre volumen, estadía y especialización extranjera. k-medias: agrupa a "
+        "los pueblos por parecido en 4 variables estandarizadas, sin reglas fijas; sirve de contraste.",
     ) or "Regla del cuadrante"
 col_clase = "clase_regla" if metodo == "Regla del cuadrante" else "clase_kmedias"
 perfil["clase"] = perfil[col_clase]
@@ -60,7 +61,7 @@ indicadores([
      "contexto": ", ".join(corto(x) for x in perfil.index[clases == "Hub comercial"])},
     {"etiqueta": "Larga estancia", "valor": str(n_clase.get("Larga estancia", 0)),
      "contexto": ", ".join(corto(x) for x in perfil.index[clases == "Larga estancia"])},
-    {"etiqueta": "Visita corta", "valor": str(n_clase.get("Visita corta", 0)), "contexto": "excursiones de un día"},
+    {"etiqueta": "Visita corta", "valor": str(n_clase.get("Visita corta", 0)), "contexto": ", ".join(corto(x) for x in perfil.index[clases == "Visita corta"])},
     {"etiqueta": "Coincidencia regla / k-medias", "valor": f"{perfil['coinciden'].sum()} de {len(perfil)}",
      "contexto": "municipios con la misma clase en ambos métodos"},
 ])
@@ -73,18 +74,22 @@ sel = next((p["customdata"][0] for p in puntos if p.get("customdata") and p["cus
 c1, c2 = st.columns([1.5, 1], gap="small")
 with c1, mosaico(
     "m4-cuadrante", "Cuadrante analítico de los municipios",
-    f"Volumen × estadía media · tamaño: % de extranjeros · color y forma: clase ({metodo.lower()}) · clic para ver el perfil",
+    f"Volumen × estadía media · tamaño: especialización extranjera · color y forma: clase ({metodo.lower()}) · clic para ver el perfil",
     "interpretacion",
     "**¿Qué tipo de destino es cada pueblo?**\n\n- Eje X: visitantes promedio por mes (escala logarítmica).\n"
-    "- Eje Y: estadía media ponderada de los turistas con pernocta.\n- Tamaño: % de visitantes extranjeros.\n"
+    "- Eje Y: estadía media ponderada de los turistas con pernocta (Σ días-persona / Σ visitantes, > 1 día).\n"
+    "- Tamaño: **especialización extranjera (IEE)** = cuota del pueblo entre los extranjeros del lago / su cuota "
+    "entre los nacionales. IEE > 1: atrae proporcionalmente más extranjeros que el lago. Se usa en lugar de "
+    "'extranjeros / total' porque los nacionales traen factor de expansión y la guía prohíbe esa división.\n"
     "- Color y forma: clase (círculo = hub, rombo = larga estancia, cuadrado = visita corta).\n\n"
-    "Las líneas punteadas son las medianas del lago. **Regla:** hub comercial = volumen ≥ 60 % del mayor; larga "
-    "estancia = estadía sobre la mediana y mayoría extranjera; visita corta = el resto. **k-medias** agrupa por "
-    "parecido en volumen, estadía, % extranjeros y presión de fin de semana.",
+    f"**Regla** (líneas punteadas): larga estancia = estadía ≥ {cortes['estadia_larga']:.2f} días (P75 del lago) "
+    f"e IEE ≥ 1; hub = volumen ≥ {formato_numero(cortes['volumen_hub'])} visitantes/mes (60 % del mayor); visita "
+    "corta = el resto. La permanencia tiene prioridad sobre el volumen. **k-medias** agrupa por parecido en "
+    "volumen, estadía, IEE y presión de fin de semana.",
     filtro=corto(sel) if sel else None,
     enlazada=True,
 ):
-    grafica(fig_cuadrante(perfil, sel), "m4_cuadrante", enlazada=True)
+    grafica(fig_cuadrante(perfil, sel, cortes), "m4_cuadrante", enlazada=True)
 
 with c2, st.container(key="tile-m4-clases"):
     st.html('<div class="ot-tt">Cómo es cada clase</div><div class="ot-ts">Promedio simple de sus municipios</div>')
@@ -94,7 +99,7 @@ with c2, st.container(key="tile-m4-clases"):
             f'<div style="margin:.45rem 0 .1rem"><span class="ot-tag" style="background:{COLORES_CLASE[clase]};color:#fff">'
             f'{clase}</span> <span style="font-size:.8rem;color:#525252">{miembros}</span></div>'
             f'<div style="font-size:.8rem;color:#393939;line-height:1.5">{formato_numero(fila["visitantes_mes"])} visitantes/mes · '
-            f'{fila["estadia_media"]:.1f} días · {fila["pct_extranjeros"]:.0%} extranjeros · '
+            f'{fila["estadia_media"]:.1f} días · IEE {fila["iee"]:.2f} · '
             f'{fila["pct_excursionistas"]:.0%} excursionistas · finde ×{fila["presion_finde"]:.2f}</div>'
         )
     distintos = perfil.index[~perfil["coinciden"]]
@@ -110,6 +115,24 @@ with c2, st.container(key="tile-m4-clases"):
         nota("observado", f"Estabilidad de k-medias: al quitar un municipio a la vez y volver a agrupar, el {estab:.0%} "
              "de los demás conserva su clase. "
              + ("Los grupos son sólidos." if estab >= 0.8 else "Los grupos son frágiles: úselos solo como contraste de la regla."))
+
+# --- Mapa: peso de cada pueblo mes a mes ---------------------------------------------------------------
+meses_obs = sorted(m["periodo"].unique())
+with mosaico(
+    "m4-mapa", "El lago mes a mes: peso de cada pueblo",
+    f"Visitantes únicos del mes por municipio · {len(meses_obs)} meses con telefonía · ▶ Reproducir para animar",
+    "observado",
+    "**¿Cómo cambia el peso de cada pueblo a lo largo del año?**\n\nCada burbuja es un municipio en su cabecera; el "
+    "tamaño es su número de visitantes únicos en el mes (misma escala en todos los meses) y el color su clase. "
+    "Los municipios **no se suman**: cada burbuja es su propio conteo. Enero y febrero de 2026 no tienen cobertura "
+    "de telefonía y no se dibujan (no son cero). La base no trae pares origen-destino entre pueblos, por eso no hay "
+    "flechas de desplazamiento: solo el peso de cada uno.",
+):
+    grafica(fig_mapa_pueblos(m, clases, te.COORDENADAS), "m4_mapa")
+    serie_mun = m.groupby(["periodo", "municipio"])["visitantes"].sum().unstack()
+    cv = (serie_mun.std() / serie_mun.mean()).sort_values()
+    st.caption(f"Pueblo más estable entre meses: **{corto(cv.index[0])}** (variación {cv.iloc[0]:.0%}); más estacional: "
+               f"**{corto(cv.index[-1])}** (variación {cv.iloc[-1]:.0%}, coeficiente de variación de los visitantes mensuales).")
 
 # --- Matriz de perfiles y huella semanal -----------------------------------------------------------
 c3, c4 = st.columns([1.25, 1], gap="small")
@@ -159,7 +182,7 @@ indicadores([
     {"etiqueta": "Visitantes promedio por mes", "valor": formato_numero(k["visitantes_mes"]), "serie": k["serie_visitantes"]},
     {"etiqueta": "Estadía media ponderada", "valor": f"{k['estadia_media']:.2f} días", "serie": k["serie_estadia"]},
     {"etiqueta": "Presión de fin de semana", "valor": f"{fila['presion_finde']:.2f}×",
-     "contexto": f"{k['pct_extranjeros']:.0%} extranjeros"},
+     "contexto": f"especialización extranjera {fila['iee']:.2f} (lago = 1)"},
 ])
 c7, c8, c9 = st.columns(3, gap="small")
 with c7, mosaico("m4-serie", "Visitantes por mes y origen", "Meses sin dato vacíos", "observado",
@@ -185,21 +208,28 @@ with st.container(key="tile-m4-hallazgos"):
         nota("observado", f"Los pueblos de **larga estancia** reciben {larga['visitantes_mes'] / hub['visitantes_mes']:.0%} de "
              f"los visitantes del hub, pero cada turista se queda {larga['estadia_media']:.1f} días frente a "
              f"{hub['estadia_media']:.1f}" + (": generan más noches por visitante." if mas_noches else "."))
-    finde_corta = corta is not None and larga is not None and corta["presion_finde"] > larga["presion_finde"]
     if corta is not None and larga is not None:
-        mezcla = (f"mayoría nacional ({1 - corta['pct_extranjeros']:.0%})" if corta["pct_extranjeros"] < 0.5
-                  else f"mayoría extranjera ({corta['pct_extranjeros']:.0%})")
-        nota("observado", f"Los de **visita corta** son {corta['pct_excursionistas']:.0%} excursionistas, {mezcla}, y en "
-             f"fin de semana reciben {corta['presion_finde']:.2f} veces un día hábil (larga estancia: "
-             f"{larga['presion_finde']:.2f}).")
-    if finde_corta:
-        nota("interpretacion", "Implicación para el INGUAT: la gestión de flujo (transporte lacustre, seguridad, servicios) "
-             "debe reforzarse los fines de semana y feriados en los pueblos de visita corta, mientras que la promoción "
-             "internacional de estadías largas tiene su mejor palanca en los pueblos de larga estancia.")
-    else:
-        nota("interpretacion", "Implicación para el INGUAT: los pueblos de visita corta no dependen más del fin de semana "
-             "que los de larga estancia; la gestión de flujo debe planificarse con el patrón semanal de cada pueblo y no "
-             "por clase.")
+        nota("observado", f"Los de **visita corta** son {corta['pct_excursionistas']:.0%} excursionistas y en fin de semana "
+             f"reciben {corta['presion_finde']:.2f} veces un día hábil (larga estancia: {larga['presion_finde']:.2f}"
+             + (f"; hub: {hub['presion_finde']:.2f})." if hub is not None else ")."))
+    # El pueblo con mayor especializacion extranjera: ¿es tambien de estadia larga?
+    top_iee = perfil["iee"].idxmax()
+    if perfil.loc[top_iee, "clase"] != "Larga estancia":
+        nota("interpretacion", f"**{corto(top_iee)}** es el pueblo con mayor especialización extranjera (IEE "
+             f"{perfil.loc[top_iee, 'iee']:.2f}) pero su estadía media es de {perfil.loc[top_iee, 'estadia_media']:.1f} días "
+             f"(mediana del lago: {cortes['mediana_estadia']:.1f}): la telefonía no respalda su imagen de destino de retiro. "
+             "Una lectura posible es que muchos extranjeros duermen en un pueblo vecino y lo visitan de día; conviene "
+             "verificarlo con una encuesta en sitio antes de orientar promoción de estadías largas hacia él.")
+    if hub is not None and corta is not None:
+        if hub["presion_finde"] > corta["presion_finde"]:
+            nota("interpretacion", "Implicación para el INGUAT: la presión de fin de semana se concentra en los **hubs** "
+                 "(nacionales que llegan por carretera): transporte lacustre, seguridad y servicios deben reforzarse "
+                 "sábado y domingo en las puertas de entrada; la promoción internacional de estadías largas tiene su "
+                 "mejor palanca en los pueblos de larga estancia.")
+        else:
+            nota("interpretacion", "Implicación para el INGUAT: la gestión de flujo (transporte lacustre, seguridad, "
+                 "servicios) debe reforzarse los fines de semana y feriados en los pueblos de visita corta, mientras que "
+                 "la promoción internacional de estadías largas tiene su mejor palanca en los pueblos de larga estancia.")
 
 # --- Hilo hacia el siguiente modulo --------------------------------------------------------------
 siguiente(

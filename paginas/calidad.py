@@ -3,8 +3,9 @@
 import pandas as pd
 import streamlit as st
 
-from src.datos import calidad, origenes
-from src.ui import aviso_sinteticos, encabezado_pagina, mosaico
+from src.datos import CONFIG, calidad, cobertura, origenes
+from src.graficas import fig_cobertura
+from src.ui import aviso_sinteticos, encabezado_pagina, grafica, mosaico
 
 cal = calidad()
 encabezado_pagina(
@@ -15,6 +16,12 @@ encabezado_pagina(
     f"ETL ejecutado<br><b>{cal['generado'].replace('T', ' ')}</b>",
 )
 aviso_sinteticos(origenes())
+
+with mosaico("cal-cobertura", "Cobertura de las fuentes", "Azul oscuro: mes con dato · azul claro: parcial · gris: sin dato · "
+             "recuadro violeta: meses que se estiman", "observado",
+             "**¿Qué fuentes respaldan cada mes?** Un mes sin cobertura se lee como *sin dato*, nunca como cero. Telefonía "
+             "y ocupación solo coinciden en sep–dic 2025: es la única ventana donde se cruzan."):
+    grafica(fig_cobertura(cobertura(), CONFIG["estimacion"]["meses_sin_cobertura"]), "cal_cobertura")
 
 fuentes = pd.DataFrame(cal["fuentes"]).T.rename(columns={
     "archivo": "Archivo", "origen": "Origen", "sha256": "Huella SHA-256", "filas_leidas": "Filas leídas",
@@ -30,4 +37,9 @@ with mosaico("cal-controles", "Controles aplicados", "Un renglón por control y 
              "**aviso**: se corrigió o se excluyó y se documenta. **error**: dato imposible (p. ej. días-persona menores "
              "que visitantes) que hay que revisar en la fuente."):
     st.dataframe(ctrl.rename(columns={"fuente": "Fuente", "control": "Control", "estado": "Estado", "detalle": "Detalle",
-                                      "filas": "Filas"}), width="stretch", hide_index=True)
+                                      "filas": "Filas"}), width="stretch", hide_index=True, height=min(36 * (len(ctrl) + 1), 900),
+                 column_config={"Detalle": st.column_config.TextColumn(width="large")})
+    with st.expander("Detalle completo de avisos y fuentes complementarias", icon=":material/warning:"):
+        for c in cal["controles"]:
+            if c["estado"] != "ok" or c["fuente"] in ("boletines", "frontera"):
+                st.markdown(f"- **{c['fuente']} · {c['control']}** ({ICONO[c['estado']]}): {c['detalle']}")
