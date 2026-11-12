@@ -8,7 +8,8 @@ from plotly.subplots import make_subplots
 
 from src.estilo import (
     COLOR_DESTACADO, COLOR_ESTIMADO, COLOR_EVENTO, COLOR_HISTORIA, COLOR_OCUPACION, COLOR_REAL, COLORES_CLASE,
-    COLORES_ORIGEN, COLORES_SEGMENTO, CUADRICULA, SECUENCIAL_AZUL, aplicar_estilo,
+    COLORES_ORIGEN, COLORES_SEGMENTO, CUADRICULA, PATRON_EXCURSIONISTA, SECUENCIAL_AZUL, SIMBOLOS_CLASE, TRAZOS_CLASE,
+    aplicar_estilo,
 )
 from src.normalizar import EVENTO_REGULAR, MUNICIPIO_CORTO, SEG_EXCURSIONISTA, SEG_TURISTA
 
@@ -45,7 +46,8 @@ def fig_segmentacion(seg: pd.DataFrame) -> go.Figure:
     fig = make_subplots(specs=[[{"secondary_y": True}]])
     x = [_mes(t) for t in seg.index]
     for s in [SEG_TURISTA, SEG_EXCURSIONISTA]:
-        fig.add_bar(x=x, y=seg[s], name=s, marker_color=COLORES_SEGMENTO[s],
+        fig.add_bar(x=x, y=seg[s], name=s,
+                    marker=dict(color=COLORES_SEGMENTO[s], pattern_shape=PATRON_EXCURSIONISTA if s == SEG_EXCURSIONISTA else ""),
                     hovertemplate="%{x}<br>" + s + ": %{y:,.0f}<extra></extra>")
     fig.add_scatter(x=x, y=seg["pct_turistas"], name="% turistas", mode="lines+markers", line=dict(color=COLOR_REAL, width=1.5),
                     connectgaps=False, secondary_y=True, hovertemplate="%{x}<br>%{y:.0%} turistas<extra></extra>")
@@ -66,8 +68,16 @@ def fig_top_paises(top: pd.DataFrame) -> go.Figure:
         text=[f"{p:.0%}" for p in t["pct"]], textposition="outside", cliponaxis=False,
         hovertemplate="<b>%{y}</b><br>%{x:,.0f} visitantes<br>%{text} de los extranjeros<extra></extra>",
     ))
-    fig.update_xaxes(title_text="Visitantes en el periodo (suma de meses)", tickformat=",.0f")
+    fig.update_xaxes(title_text="Visitantes en el periodo (suma de meses)", tickformat=",.0f", range=_rango_con_etiquetas(t["visitantes"]))
     return aplicar_estilo(fig, alto=340)
+
+
+def _rango_con_etiquetas(valores: pd.Series, holgura: float = 0.22) -> list[float]:
+    """Rango del eje con espacio para las etiquetas de texto fuera de las barras (en pantallas angostas
+    no se recortan contra el borde ni se montan sobre los nombres del eje)."""
+    lo, hi = min(0.0, float(valores.min())), max(0.0, float(valores.max()))
+    ancho = (hi - lo) or 1.0
+    return [lo - holgura * ancho if lo < 0 else 0, hi + holgura * ancho]
 
 
 def fig_estadia_paises(top: pd.DataFrame, estadia_nacional: float, estadia_total: float) -> go.Figure:
@@ -118,7 +128,10 @@ def fig_serie_diaria(diaria: pd.DataFrame, evento_sel: str | None) -> go.Figure:
     fig.update_yaxes(title_text="Visitantes presentes en el día", tickformat=",.0f")
     fig.update_xaxes(rangeslider=dict(visible=True, thickness=0.06),
                      range=[diaria.index.min() - pd.Timedelta(days=3), diaria.index.max() + pd.Timedelta(days=3)])
-    return aplicar_estilo(fig, alto=420)
+    aplicar_estilo(fig, alto=420)
+    # Unica grafica con acercamiento: el eje de fechas se mueve con la barra inferior (rangeslider)
+    fig.update_xaxes(fixedrange=False)
+    return fig
 
 
 def fig_lift(lift: pd.DataFrame, columna: str, seleccionado: str | None) -> go.Figure:
@@ -130,7 +143,7 @@ def fig_lift(lift: pd.DataFrame, columna: str, seleccionado: str | None) -> go.F
         hovertemplate="<b>%{y}</b><br>Lift %{x:+.1%}<br>%{customdata} días observados<extra></extra>",
     ))
     fig.add_vline(x=0, line=dict(color=COLOR_REAL, width=1))
-    fig.update_xaxes(title_text="Impacto frente al día regular promedio", tickformat="+.0%")
+    fig.update_xaxes(title_text="Impacto frente al día regular promedio", tickformat="+.0%", range=_rango_con_etiquetas(t[columna]))
     fig.update_layout(clickmode="event+select", dragmode=False)
     return aplicar_estilo(fig, alto=360)
 
@@ -246,7 +259,7 @@ def fig_afluencia_relativa(rel: pd.Series) -> go.Figure:
                            marker_color=COLOR_HISTORIA, text=[f"{v:.0f}" for v in t.values], textposition="outside",
                            cliponaxis=False, hovertemplate="%{y}: índice %{x:.0f}<extra></extra>"))
     fig.add_vline(x=100, line=dict(color=COLOR_REAL, dash="dot", width=1))
-    fig.update_xaxes(title_text="Afluencia relativa (Panajachel = 100)")
+    fig.update_xaxes(title_text="Afluencia relativa (Panajachel = 100)", range=_rango_con_etiquetas(t))
     return aplicar_estilo(fig, alto=340)
 
 
@@ -262,6 +275,7 @@ def fig_cuadrante(perfil: pd.DataFrame, seleccionado: str | None) -> go.Figure:
             text=[MUNICIPIO_CORTO.get(m, m) for m in g.index], textposition="top center",
             customdata=list(zip(g.index, g["pct_extranjeros"])),
             marker=dict(size=12 + 40 * g["pct_extranjeros"], color=COLORES_CLASE.get(clase, COLOR_HISTORIA), opacity=0.85,
+                        symbol=SIMBOLOS_CLASE.get(clase, "circle"),
                         line=dict(color=["#161616" if m == seleccionado else "white" for m in g.index],
                                   width=[3 if m == seleccionado else 1 for m in g.index])),
             hovertemplate="<b>%{customdata[0]}</b><br>%{x:,.0f} visitantes/mes<br>estadía %{y:.2f} días"
@@ -416,7 +430,8 @@ def fig_estacionalidad_clase(t: pd.DataFrame) -> go.Figure:
     fig = go.Figure()
     for clase in t.columns:
         fig.add_scatter(x=t.index, y=t[clase], name=clase, mode="lines+markers", connectgaps=False,
-                        line=dict(color=COLORES_CLASE.get(clase, COLOR_HISTORIA), width=2),
+                        line=dict(color=COLORES_CLASE.get(clase, COLOR_HISTORIA), width=2, dash=TRAZOS_CLASE.get(clase, "solid")),
+                        marker=dict(symbol=SIMBOLOS_CLASE.get(clase, "circle"), size=7),
                         hovertemplate="%{x|%b %Y}<br>índice %{y:.0f}<extra>" + clase + "</extra>")
     fig.add_hline(y=100, line=dict(color=COLOR_HISTORIA, dash="dot", width=1))
     fig.update_yaxes(title_text="Índice (promedio = 100)")

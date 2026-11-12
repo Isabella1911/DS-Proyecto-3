@@ -13,7 +13,7 @@ from src.datos import corto, origenes, tabla
 from src.estilo import formato_numero
 from src.graficas import MES_ES, fig_estadia_paises, fig_municipios, fig_segmentacion, fig_top_paises
 from src.normalizar import MUNICIPIOS
-from src.ui import aviso_sinteticos, barra_filtros, encabezado_pagina, indicadores, mosaico, nota, sin_datos
+from src.ui import aviso_sinteticos, barra_filtros, encabezado_pagina, grafica, indicadores, mosaico, nota, siguiente, sin_datos
 
 m_todo = tabla("mensual")
 periodos = sorted(m_todo["periodo"].unique())
@@ -64,9 +64,9 @@ with col_a, mosaico(
     "Los municipios **no se suman** para obtener un total del lago: quien visita Panajachel y San Juan el mismo mes "
     "aparece en ambos.",
     filtro=", ".join(corto(x) for x in sel_previa) if sel_previa else None,
+    enlazada=True,
 ):
-    evento = st.plotly_chart(fig_municipios(promedio), key="m1_mun_chart", on_select="rerun",
-                             selection_mode="points", width="stretch")
+    evento = grafica(fig_municipios(promedio), "m1_mun_chart", enlazada=True)
 
 seleccion = _seleccion(evento)
 
@@ -106,7 +106,7 @@ with c1, mosaico(
     "Los meses sin cobertura aparecen vacíos y rotulados 'Sin dato', nunca como cero.",
     filtro=nombre_ambito if seleccion else None,
 ):
-    st.plotly_chart(fig_segmentacion(ind.segmentacion(ms)), key="m1_seg", width="stretch")
+    grafica(fig_segmentacion(ind.segmentacion(ms)), "m1_seg")
 
 top = ind.top_paises(ms, 10)
 with c2, mosaico(
@@ -119,7 +119,7 @@ with c2, mosaico(
     if top.empty:
         sin_datos("La selección no tiene visitantes extranjeros.")
     else:
-        st.plotly_chart(fig_top_paises(top), key="m1_top", width="stretch")
+        grafica(fig_top_paises(top), "m1_top")
     nac = ms[ms["origen"] == "Nacional"]
     if not nac.empty:
         st.caption(f"**Nacionales (Guatemala):** {formato_numero(nac.groupby('periodo')['visitantes'].sum().mean())} "
@@ -137,8 +137,7 @@ with c3, mosaico(
     filtro=nombre_ambito if seleccion else None,
 ):
     if not top.empty:
-        st.plotly_chart(fig_estadia_paises(top, ind.estadia_media(ms[ms["origen"] == "Nacional"]), k["estadia_media"]),
-                        key="m1_estadia", width="stretch")
+        grafica(fig_estadia_paises(top, ind.estadia_media(ms[ms["origen"] == "Nacional"]), k["estadia_media"]), "m1_estadia")
 
 with c4, st.container(key="tile-m1-lectura"):
     st.html('<div class="ot-tt">Lectura del módulo</div><div class="ot-ts">Qué muestran los datos de la selección</div>')
@@ -150,9 +149,14 @@ with c4, st.container(key="tile-m1-lectura"):
     perfil = ind.por_municipio(m)
     if not perfil.empty:
         mas_largo = perfil["estadia_media"].idxmax()
-        nota("interpretacion", f"**{corto(mas_largo)}** tiene la estadía más larga del lago "
-             f"({perfil.loc[mas_largo, 'estadia_media']:.1f} días) y **{corto(perfil['visitantes_mes'].idxmax())}** el mayor "
-             "volumen: el lago combina puertas de entrada con destinos de larga estancia (se desarrolla en el módulo 4).")
+        mayor = perfil["visitantes_mes"].idxmax()
+        if mas_largo != mayor:
+            nota("interpretacion", f"**{corto(mas_largo)}** tiene la estadía más larga del lago "
+                 f"({perfil.loc[mas_largo, 'estadia_media']:.1f} días) y **{corto(mayor)}** el mayor "
+                 "volumen: el lago combina puertas de entrada con destinos de larga estancia (se desarrolla en el módulo 4).")
+        else:
+            nota("interpretacion", f"**{corto(mayor)}** concentra a la vez el mayor volumen y la estadía más larga "
+                 f"({perfil.loc[mayor, 'estadia_media']:.1f} días): es puerta de entrada y destino de estancia (módulo 4).")
     with st.expander("Tabla por municipio", icon=":material/table:"):
         st.dataframe(
             perfil.rename(index=corto).rename(columns={
@@ -165,3 +169,12 @@ with c4, st.container(key="tile-m1-lectura"):
                            "Días-persona/mes": st.column_config.NumberColumn(format="localized")},
             width="stretch",
         )
+
+# --- Hilo hacia el siguiente modulo --------------------------------------------------------------
+siguiente(
+    "paginas/m2_temporal.py", "Módulo 2 · Dinámica temporal y pronóstico",
+    "Ya se sabe cuántos visitantes llegan y de dónde. La siguiente pregunta es <b>cuándo</b>: qué días y "
+    "festividades llenan el lago y cuántos visitantes hubo en enero y febrero de 2026, los meses sin "
+    "telefonía.",
+    ":material/calendar_month:",
+)

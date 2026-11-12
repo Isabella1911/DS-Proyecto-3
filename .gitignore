@@ -7,6 +7,9 @@ data/*
 # CSV solo los que vivan fuera de data/ y se agreguen a proposito con git add -f
 data/**/*.csv
 
+# Intermedios de la memoria (se regeneran con scripts/generar_memoria.py)
+docs/memoria/_build/
+
 # Python
 __pycache__/
 *.py[cod]

@@ -1,6 +1,7 @@
 """Carga de las tablas limpias para el tablero (con cache de Streamlit).
 
-Si falta algun parquet en data/procesados, corre el ETL una vez (src/etl.py).
+app.py llama a preparar() antes de cada pagina: si faltan los parquet o cambiaron los archivos de
+entrada (por ejemplo, se colocaron las bases reales en data/raw), corre el ETL (src/etl.py).
 """
 
 from __future__ import annotations
@@ -16,11 +17,23 @@ from src.normalizar import MUNICIPIO_CORTO, MUNICIPIOS
 TABLAS = ["mensual", "diaria", "migracion_mensual", "ocupacion", "oferta"]
 
 
+def preparar() -> None:
+    """Corre el ETL si faltan las tablas o si cambiaron los archivos de entrada (una vez por sesion)."""
+    if st.session_state.get("_datos_revisados"):
+        return
+    if not etl.vigente():
+        with st.spinner("Preparando datos… Se leen y normalizan las 5 bases; solo ocurre la primera vez "
+                        "o cuando cambian los archivos.", show_time=True):
+            etl.ejecutar()
+        st.cache_data.clear()
+    st.session_state["_datos_revisados"] = True
+
+
 def _asegurar_procesados() -> None:
+    """Respaldo cuando una pagina corre sola (pruebas): solo verifica que existan las tablas."""
     faltan = [t for t in TABLAS if not (etl.PROCESADOS / f"{t}.parquet").exists()]
     if faltan or not (etl.PROCESADOS / "calidad.json").exists():
-        with st.spinner("Preparando los datos (ETL)…"):
-            etl.ejecutar()
+        etl.ejecutar()
 
 
 @st.cache_data(show_spinner=False)

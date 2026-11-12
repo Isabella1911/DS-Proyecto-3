@@ -2,8 +2,14 @@
 
 import streamlit as st
 
-from src.estilo import COLOR_ESTIMADO, COLOR_EVENTO, COLOR_OCUPACION, COLOR_REAL, COLORES_CLASE, COLORES_ORIGEN, COLORES_SEGMENTO
+from src.estilo import (
+    COLOR_DESTACADO, COLOR_ESTIMADO, COLOR_EVENTO, COLOR_HISTORIA, COLOR_OCUPACION, COLOR_REAL, COLORES_CLASE, COLORES_ORIGEN,
+    COLORES_SEGMENTO, SIMBOLOS_CLASE, TRAZOS_CLASE, contraste,
+)
 from src.ui import encabezado_pagina
+
+FORMA_ES = {"circle": "círculo", "diamond": "rombo", "square": "cuadrado"}
+TRAZO_ES = {"solid": "línea continua", "dash": "guiones", "dot": "punteada"}
 
 encabezado_pagina(
     "Metodología",
@@ -32,25 +38,58 @@ st.markdown(
 
 st.subheader("Paleta de color")
 st.caption("Cada color significa siempre lo mismo en todo el tablero. Base: paleta validada para daltonismo del Lab 10.")
-items = (
-    [(k, v) for k, v in COLORES_ORIGEN.items()]
-    + [(k, v) for k, v in COLORES_SEGMENTO.items()]
-    + [("Dato observado", COLOR_REAL), ("Estimación (línea discontinua)", COLOR_ESTIMADO), ("Festividad", COLOR_EVENTO),
-       ("Ocupación hotelera", COLOR_OCUPACION)]
-    + [(f"Clase: {k}", v) for k, v in COLORES_CLASE.items()]
+st.markdown(
+    "Tres reglas de teoría del color guían la paleta:\n\n"
+    "1. **Tono para categorías, luminosidad para magnitudes.** Las categorías (origen, segmento, clase) usan tonos "
+    "distintos; las magnitudes (mapas de calor) usan un solo tono de azul que va de claro a oscuro, porque el ojo ordena "
+    "la luminosidad sin necesidad de leyenda.\n"
+    "2. **Contraste suficiente.** Todo color de dato llega al menos a **3:1** contra el fondo blanco de los mosaicos "
+    "(WCAG 1.4.11, marcas gráficas). Los colores de segmento y festividad se oscurecieron lo justo para lograrlo, sin "
+    "cambiar su tono.\n"
+    "3. **Nunca solo el color.** Los pares que una persona con daltonismo podría confundir llevan una segunda señal "
+    "(WCAG 1.4.1): el excursionista tiene trama de puntos y cada clase de municipio tiene su propia forma y trazo.\n\n"
+    "El tema es claro y fijo: los contrastes se midieron contra superficies claras y el tablero no ofrece modo oscuro, "
+    "para que ninguna gráfica pierda legibilidad."
 )
-st.html("".join(
-    f'<div style="display:flex;align-items:center;gap:.6rem;margin:.25rem 0"><span style="width:28px;height:14px;'
-    f'background:{c};display:inline-block"></span><code>{c}</code><span>{t}</span></div>' for t, c in items))
+PALETA = [
+    ("Nacional", COLORES_ORIGEN["Nacional"], "Azul y naranja son complementarios: el par que mejor se separa con cualquier tipo de daltonismo."),
+    ("Extranjero", COLORES_ORIGEN["Extranjero"], "Naranja cálido para el visitante internacional, foco de la promoción del INGUAT."),
+    ("Turista (> 1 día)", COLORES_SEGMENTO["Turista (> 1 día)"], "Verde: pernocta y permanencia."),
+    ("Excursionista (< 1 día)", COLORES_SEGMENTO["Excursionista (< 1 día)"], "Rosa con trama de puntos: con deuteranopia el verde y el rosa se acercan, la trama los separa."),
+    ("Dato observado", COLOR_REAL, "Tinta negra: lo medido es lo que más resalta."),
+    ("Estimación", COLOR_ESTIMADO, "Violeta y línea discontinua: un tono que no se usa para nada más, para que una estimación nunca se lea como dato."),
+    ("Festividad", COLOR_EVENTO, "Ámbar: color de aviso, se distingue sobre la serie gris."),
+    ("Selección / filtro", COLOR_DESTACADO, "Azul interactivo de IBM Carbon: marca lo que se eligió con un clic."),
+    ("Contexto", COLOR_HISTORIA, "Gris: referencias y series de fondo, para no competir con el dato."),
+    ("Ocupación hotelera", COLOR_OCUPACION, "Verde azulado oscuro: porcentajes de hoteles, distintos de las personas."),
+] + [(f"Clase: {k}", v, f"Marcador {FORMA_ES[SIMBOLOS_CLASE[k]]}, {TRAZO_ES[TRAZOS_CLASE[k]]}. Con protanopia el "
+       "azul marino y el vino se acercan; la forma los separa.")
+     for k, v in COLORES_CLASE.items() if k != "Intermedio"]
+filas = "".join(
+    f'<tr><td><span style="width:28px;height:14px;background:{c};display:inline-block;vertical-align:middle"></span> '
+    f'<code>{c}</code></td><td>{t}</td><td style="text-align:right;font-variant-numeric:tabular-nums">'
+    f'{contraste(c):.1f}:1</td><td>{p}</td></tr>' for t, c, p in PALETA)
+st.html(
+    '<div style="overflow-x:auto"><table style="border-collapse:collapse;font-size:.8125rem;width:100%">'
+    '<thead><tr style="text-align:left;border-bottom:1px solid #c6c6c6"><th>Color</th><th>Significado</th>'
+    '<th style="text-align:right">Contraste</th><th>Por qué</th></tr></thead>'
+    f'<tbody>{filas}</tbody></table></div>'
+    '<style>td,th{padding:.35rem .5rem;border-bottom:1px solid #e0e0e0;vertical-align:top}</style>'
+)
 
 st.subheader("Limitaciones")
 st.markdown(
     "- **Datos sintéticos en esta versión**: las bases institucionales son confidenciales; el tablero lee los reales "
-    "si se colocan en `data/raw/` (o en la carpeta de `OBS_DATOS`).\n"
+    "si se colocan en `data/raw/` (o en la carpeta de `OBS_DATOS`) y se reprocesa solo al detectar archivos nuevos.\n"
+    "- Solo se usan los registros de los 10 municipios del lago (Sololá); otros destinos de las bases se reportan en "
+    "Calidad de los datos y se excluyen.\n"
     "- La telefonía no cubre enero y febrero de 2026: no hay comparación interanual directa 2025 vs 2026.\n"
     "- Los nacionales incorporan factor de expansión: se reportan separados de los extranjeros.\n"
     "- Hotelería formal y plataformas digitales (Airbnb) son universos distintos.\n"
-    "- El corte de oferta 2026 es parcial (primer trimestre, con valores repetidos del año previo)."
+    "- El corte de oferta 2026 es parcial (primer trimestre, con valores repetidos del año previo).\n"
+    "- Las encuestas disponibles no traen factor de expansión: no se usaron, porque no representan al total de visitantes.\n"
+    "- k-medias con 10 municipios es un contraste de la regla, no una clasificación independiente; su estabilidad se "
+    "reporta en el módulo 4."
 )
 
 st.subheader("Equipo · Grupo 3")

@@ -28,6 +28,15 @@ FUENTE_DATOS = "Telefonía (movilidad), migración, ocupación y oferta hotelera
 
 MESES_CORTOS = ["ene", "feb", "mar", "abr", "may", "jun", "jul", "ago", "sep", "oct", "nov", "dic"]
 
+# Barra de Plotly igual en todas las graficas: solo "descargar imagen" (PNG). Sin zoom, paneo, lazo
+# ni seleccion por caja; la unica interaccion es el clic de las graficas enlazadas.
+CONFIG_PLOTLY = {
+    "displaylogo": False,
+    "modeBarButtons": [["toImage"]],
+    "toImageButtonOptions": {"format": "png", "scale": 2},
+    "scrollZoom": False,
+}
+
 _CSS = """
 <style>
 [data-testid="stMainBlockContainer"] { max-width: 1440px; padding: 1.25rem 2rem 3rem; }
@@ -54,6 +63,7 @@ _CSS = """
 [class*="st-key-tile-"] [data-testid="stPopover"] button { border: none; background: transparent; min-height: 1.75rem; padding: 0 .25rem; color: #525252; }
 [class*="st-key-tile-"] [data-testid="stPopover"] button:hover { background: #e8e8e8; color: #161616; }
 [class*="st-key-tile-"] [data-testid="stPopover"] button div[aria-hidden="true"] { display: none; }
+.ot-clic { color: #0f62fe; background: #ffffff; border: 1px solid #0f62fe; line-height: 1rem; }
 .ot-chip { font-size: .6875rem; line-height: 1.1rem; padding: 0 .5rem; background: #161616; color: #ffffff; white-space: nowrap; max-width: 22rem; overflow: hidden; text-overflow: ellipsis; }
 
 /* indicadores */
@@ -74,6 +84,10 @@ _CSS = """
 [class*="st-key-nota-"] p { font-size: .8125rem; color: #393939; line-height: 1.5; margin-bottom: .2rem; }
 .ot-nl { font-size: .6875rem; color: #6f6f6f; margin-bottom: .1rem; }
 
+/* enlace al modulo siguiente */
+[class*="st-key-siguiente-"] { background: #ffffff; border: 1px solid #e0e0e0; border-left: 3px solid #0f62fe; padding: .75rem 1rem !important; gap: .25rem; margin-top: .5rem; }
+.ot-sig { font-size: .875rem; color: #393939; line-height: 1.5; }
+
 /* accesos de la portada */
 [class*="st-key-acceso-"] { background: #ffffff; border: 1px solid #e0e0e0; padding: 1rem !important; min-height: 10.5rem; justify-content: space-between; }
 .ot-acc-t { font-size: 1rem; font-weight: 600; color: #161616; }
@@ -81,6 +95,31 @@ _CSS = """
 
 [data-testid="stCaptionContainer"] { color: #6f6f6f; }
 [data-testid="stSidebar"] [data-testid="stCaptionContainer"] { font-size: .7rem; line-height: 1.45; }
+
+/* tableta: menos margen y encabezado en una columna */
+@media (max-width: 1024px) {
+  /* con la barra lateral plegada el logo flota arriba a la izquierda: se deja espacio y fondo opaco */
+  [data-testid="stMainBlockContainer"] { padding: 3.25rem 1.25rem 2.5rem; }
+  [data-testid="stHeader"] { background: #f4f4f4; }
+  .ot-head { gap: 1rem; }
+}
+/* celular: Streamlit apila las columnas debajo de 640 px; se ordena el encabezado de cada mosaico */
+@media (max-width: 640px) {
+  [data-testid="stMainBlockContainer"] { padding: 3.25rem .75rem 2rem; }
+  .ot-head { flex-direction: column; align-items: flex-start; gap: .5rem; }
+  .ot-meta { text-align: left; white-space: normal; }
+  .ot-h1 { font-size: 1.4rem; }
+  .ot-kpis { grid-template-columns: repeat(auto-fit, minmax(9.5rem, 1fr)); gap: .5rem; }
+  .ot-kpi .v { font-size: 1.5rem; }
+  [class*="st-key-tile-"], [class*="st-key-filtros-"] { padding: .75rem .75rem .5rem !important; }
+  [class*="st-key-tile-"] [data-testid="stHorizontalBlock"]:has(.ot-tags) { flex-wrap: wrap; align-items: center; gap: .25rem .5rem; }
+  [class*="st-key-tile-"] [data-testid="stHorizontalBlock"]:has(.ot-tags) > [data-testid="stColumn"]:nth-child(1) { flex: 1 1 100% !important; min-width: 100% !important; }
+  [class*="st-key-tile-"] [data-testid="stHorizontalBlock"]:has(.ot-tags) > [data-testid="stColumn"]:nth-child(2) { flex: 1 1 auto !important; min-width: 0 !important; width: auto !important; }
+  [class*="st-key-tile-"] [data-testid="stHorizontalBlock"]:has(.ot-tags) > [data-testid="stColumn"]:nth-child(3) { flex: 0 0 auto !important; min-width: 0 !important; width: auto !important; }
+  .ot-tags { justify-content: flex-start; }
+  /* en pantallas tactiles la barra de Plotly queda siempre visible y tapa la leyenda */
+  .modebar-container { display: none; }
+}
 </style>
 """
 
@@ -109,17 +148,27 @@ def _tag(tipo: str) -> str:
 
 
 @contextmanager
-def mosaico(clave: str, titulo: str, subtitulo: str, tipo: str, ayuda: str, filtro: str | None = None):
+def mosaico(clave: str, titulo: str, subtitulo: str, tipo: str, ayuda: str, filtro: str | None = None,
+            enlazada: bool = False):
     """Mosaico de una visualizacion: titulo, subtitulo con unidades y alcance, etiqueta de
-    tipo de dato, chip del filtro cruzado activo y la explicacion en un icono de informacion."""
+    tipo de dato, chip del filtro cruzado activo y la explicacion en un icono de informacion.
+    Las graficas que filtran a otras (enlazada=True) llevan la misma pista 'Clic para filtrar'."""
     with st.container(key=f"tile-{clave}"):
         izq, der, info = st.columns([0.62, 0.32, 0.06], vertical_alignment="top", gap="small")
         izq.html(f'<div class="ot-tt">{html.escape(titulo)}</div><div class="ot-ts">{subtitulo}</div>')
         chip = f'<span class="ot-chip" title="{html.escape(filtro)}">Filtrado por: {html.escape(filtro)}</span>' if filtro else ""
-        der.html(f'<div class="ot-tags">{chip}{_tag(tipo)}</div>')
+        clic = '<span class="ot-tag ot-clic" title="Haga clic en la gráfica para filtrar; doble clic para limpiar">Clic para filtrar</span>' if enlazada else ""
+        der.html(f'<div class="ot-tags">{chip}{clic}{_tag(tipo)}</div>')
         with info.popover("", icon=":material/info:", help="Acerca de esta gráfica"):
             st.markdown(ayuda)
         yield
+
+
+def grafica(fig, key: str, enlazada: bool = False):
+    """Muestra una figura con la barra de Plotly uniforme. Las enlazadas responden al clic en un punto
+    o barra (on_select) y devuelven la seleccion."""
+    extra = {"on_select": "rerun", "selection_mode": "points"} if enlazada else {}
+    return st.plotly_chart(fig, key=key, width="stretch", config=CONFIG_PLOTLY, **extra)
 
 
 def _sparkline(valores: list[float], ancho: int = 96, alto: int = 30) -> str:
@@ -191,6 +240,18 @@ def encabezado_con_vista(seccion: str, titulo: str, descripcion: str | None, met
     if not visibles:
         st.info("Todas las gráficas están ocultas. Actívelas desde **Personalizar vista**.", icon=":material/visibility_off:")
     return visibles
+
+
+def siguiente(pagina: str, titulo: str, puente: str, icono: str = ":material/arrow_forward:") -> None:
+    """Cierre de un modulo: una frase que conecta con la pregunta del siguiente y el enlace a el.
+
+    Si la pagina corre sola (pruebas de una pagina sin app.py) el enlace no existe y se muestra solo el texto."""
+    with st.container(key=f"siguiente-{_clave(pagina)}"):
+        st.html(f'<div class="ot-nl">Siguiente</div><div class="ot-sig">{puente}</div>')
+        try:
+            st.page_link(pagina, label=titulo, icon=icono)
+        except st.errors.StreamlitAPIException:
+            st.markdown(f"**{titulo}**")
 
 
 def sin_datos(mensaje: str) -> None:

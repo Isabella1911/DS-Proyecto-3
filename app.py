@@ -6,6 +6,7 @@ Ejecutar:
 
 import streamlit as st
 
+from src.datos import preparar
 from src.ui import FUENTE_DATOS, estilo_global
 
 st.set_page_config(
@@ -15,6 +16,7 @@ st.set_page_config(
 )
 st.logo("static/logo.svg", icon_image="static/icono.svg", size="large")
 estilo_global()
+preparar()
 
 paginas = st.navigation(
     {
@@ -26,6 +28,7 @@ paginas = st.navigation(
             st.Page("paginas/m2_temporal.py", title="2 · Dinámica temporal y pronóstico", icon=":material/calendar_month:"),
             st.Page("paginas/m3_oferta.py", title="3 · Oferta hotelera", icon=":material/hotel:"),
             st.Page("paginas/m4_municipios.py", title="4 · Red de municipios", icon=":material/hub:"),
+            st.Page("paginas/conclusiones.py", title="Conclusiones", icon=":material/flag:"),
         ],
         "Metodología": [
             st.Page("paginas/calidad.py", title="Calidad de los datos", icon=":material/fact_check:"),

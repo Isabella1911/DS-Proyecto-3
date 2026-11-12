@@ -299,6 +299,28 @@ def ejecutar(forzar_sinteticos: bool = False, destino: Path = PROCESADOS) -> Rep
     return rep
 
 
+def vigente(destino: Path = PROCESADOS) -> bool:
+    """True si las tablas procesadas corresponden a los archivos de entrada actuales.
+
+    Compara, fuente por fuente, el archivo que se usaria hoy (real o sintetico) y su huella con
+    lo registrado en calidad.json. Asi, al colocar las bases reales en data/raw el tablero se
+    reprocesa solo, en vez de seguir mostrando los sinteticos.
+    """
+    reporte = destino / "calidad.json"
+    if not reporte.exists() or any(not (destino / f"{t}.parquet").exists() for t, _ in TABLAS.values()):
+        return False
+    previas = json.loads(reporte.read_text(encoding="utf-8")).get("fuentes", {})
+    for fuente in TABLAS:
+        try:
+            ruta, origen = localizar(fuente)
+        except FileNotFoundError:
+            return False
+        p = previas.get(fuente, {})
+        if (p.get("archivo"), p.get("origen"), p.get("sha256")) != (ruta.name, origen, _huella(ruta)):
+            return False
+    return True
+
+
 def main() -> None:
     ap = argparse.ArgumentParser(description="ETL del observatorio")
     ap.add_argument("--sinteticos", action="store_true", help="usar solo los datos sintéticos")

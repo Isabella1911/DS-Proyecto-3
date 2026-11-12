@@ -99,3 +99,43 @@ def test_cruce_ventana_tasa_implicita():
     ocup = pd.Series([0.4], index=pd.to_datetime(["2025-09-01"]))
     c = of.cruce_ventana(m, anual, ocup, (pd.Timestamp("2025-09-01"), pd.Timestamp("2025-12-01")))
     assert c.loc["2025-09-01", "tasa_implicita"] == pytest.approx(300 / (1000 * 30))
+
+
+def test_capacidad_anual_excluye_corte_parcial():
+    from src import oferta as of
+
+    o = pd.DataFrame({
+        "anio": [2024, 2025, 2026], "trimestre": [4, 4, 1], "departamento": "Sololá", "tipo_alojamiento": "Hotel",
+        "establecimientos": [10.0, 12.0, 12.0], "habitaciones": [100.0, 120.0, 120.0], "plazas_cama": [200.0, 240.0, 240.0],
+        "corte_parcial": [False, False, True], "repite_previo": [False, False, True],
+    })
+    cap = of.capacidad(o, "Sololá")
+    assert cap["corte"].tolist() == ["2024", "2025", "2026-T1"]
+    anual = of.capacidad_anual(cap)
+    assert anual.index.tolist() == [2024, 2025]
+    assert anual.loc[2025, "plazas_cama"] == 240
+
+
+def test_regla_del_cuadrante():
+    from src import territorio as te
+
+    p = pd.DataFrame({
+        "visitantes_mes": [10000, 2000, 1500, 1800],
+        "estadia_media": [2.5, 5.0, 1.5, 1.4],
+        "pct_extranjeros": [0.4, 0.8, 0.2, 0.7],
+    }, index=["hub", "larga", "corta", "corta_ext"])
+    clases = te.clasificar_regla(p)
+    assert clases.tolist() == ["Hub comercial", "Larga estancia", "Visita corta", "Visita corta"]
+
+
+def test_estabilidad_kmedias_con_grupos_claros():
+    from src import territorio as te
+
+    p = pd.DataFrame({
+        "visitantes_mes": [10000, 9500, 9000, 1000, 1100, 1050, 1200, 900, 950],
+        "estadia_media": [2.0, 2.1, 2.2, 5.0, 5.2, 5.1, 1.2, 1.3, 1.25],
+        "pct_extranjeros": [0.4, 0.4, 0.42, 0.8, 0.8, 0.82, 0.1, 0.1, 0.12],
+        "presion_finde": [1.3, 1.3, 1.31, 1.1, 1.1, 1.12, 1.8, 1.8, 1.82],
+    }, index=list("abcdefghi"))
+    p["log_volumen"] = np.log10(p["visitantes_mes"])
+    assert te.estabilidad_kmedias(p) == pytest.approx(1.0)
