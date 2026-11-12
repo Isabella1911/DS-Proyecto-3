@@ -359,7 +359,7 @@ def main() -> None:
     ref = BUILD / "referencia.docx"
     referencia(ref)
     subprocess.run(["pandoc", str(md), "-o", str(SALIDA), "--reference-doc", str(ref), "--toc", "--toc-depth=2",
-                    "--resource-path", str(BUILD), "-f", "markdown"], check=True)
+                    "--resource-path", str(BUILD), "-f", "markdown-smart"], check=True)
     print(f"Memoria generada: {SALIDA.relative_to(RAIZ)}")
 
 
