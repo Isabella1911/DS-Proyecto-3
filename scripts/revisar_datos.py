@@ -81,8 +81,8 @@ def lecturas(r: dict) -> None:
 
     _titulo("Modulo 1 - Demanda")
     print(f"  Visitantes por mes (suma de municipios): {dm['visitantes_mes']:,.0f} en {dm['meses']} meses")
-    print(f"  Estadia media ponderada: {dm['estadia_media']:.2f} dias | extranjeros {dm['pct_extranjeros']:.0%} | "
-          f"turistas con pernocta {dm['pct_turistas']:.0%}")
+    print(f"  Estadia media ponderada: {dm['estadia_media']:.2f} dias | extranjeros/mes {dm['extranjeros_mes']:,.0f} | "
+          f"nacionales/mes {dm['nacionales_mes']:,.0f} | turistas con pernocta {dm['pct_turistas']:.0%}")
     print(f"  Mayor volumen: {corto(dm['mun_volumen'])} | estadia mas larga: {corto(dm['mun_estadia'])} "
           f"({dm['estadia_mun_max']:.1f} dias)")
     print(f"  Primer mercado extranjero: {dm['mercado_lider']} ({dm['pct_mercado_lider']:.0%}) | "
@@ -111,8 +111,16 @@ def lecturas(r: dict) -> None:
         print(f"  Plazas cama {ofe['anio0']}: {ofe['plazas0']:,.0f} -> {ofe['anio1']}: {ofe['plazas1']:,.0f} ({crec:+.0%})")
         print(f"  Ocupacion promedio {ofe['anio_ocupacion']}: {ofe['ocupacion_prom']:.0%} (pico {MES[ofe['mes_pico'] - 1]}, "
               f"{ofe['ocupacion_pico']:.0%})")
-        print(f"  Ventana coincidente: {ofe['meses_cruce']} meses | noches demandadas/mes {ofe['noches_mes']:,.0f} | "
-              f"tasa implicita {ofe['tasa_implicita']:.0%} vs ocupacion oficial {ofe['ocupacion_oficial']:.0%}")
+        print(f"  Ventana coincidente: {ofe['meses_cruce']} meses | ocupacion oficial {ofe['ocupacion_oficial']:.0%}")
+        print(f"  Captacion formal: extranjeros {ofe['captacion_ext']:.1%} (r = {ofe['correlacion_ext']:.2f}) | "
+              f"nacionales {ofe['captacion_nac']:.1%} (r = {ofe['correlacion_nac']:.2f})")
+        if ofe["captacion_ext"] != ofe["captacion_ext"]:
+            _aviso("Sin boletines de ocupacion: el cruce de la ventana no tiene noches de hotel por residencia.")
+    fr = r.get("frontera") or {}
+    if fr:
+        print(f"  Encuesta en fronteras (ola {fr['ola']}, {fr['encuestas']:,}): hotel {fr['pct_hotel']:.0%} | "
+              f"Airbnb {fr['pct_airbnb']:.0%} (entre olas {fr['airbnb_min']:.0%}-{fr['airbnb_max']:.0%}) | "
+              f"{fr['puesto_top']} {fr['pct_puesto_top']:.0%}")
         if ofe["meses_cruce"] < 4:
             _aviso("La ventana coincidente tiene menos de 4 meses: revise ventana_coincidente en config/config.yaml.")
 
@@ -125,12 +133,12 @@ def lecturas(r: dict) -> None:
     pc = te["por_clase"]
     for clase, fila in pc.iterrows():
         print(f"  {clase:15} {fila['visitantes_mes']:>9,.0f} vis/mes  {fila['estadia_media']:.1f} dias  "
-              f"{fila['pct_extranjeros']:.0%} ext  {fila['pct_excursionistas']:.0%} exc  finde x{fila['presion_finde']:.2f}")
-    if "Visita corta" in pc.index and pc.loc["Visita corta", "pct_extranjeros"] >= 0.5:
-        _aviso("Los pueblos de visita corta son mayoria extranjera: el hallazgo los describe como mayoria nacional.")
+              f"IEE {fila['iee']:.2f}  {fila['pct_excursionistas']:.0%} exc  finde x{fila['presion_finde']:.2f}")
+    print(f"  Mayor especializacion extranjera: {corto(te['mun_iee'])} (IEE {te['iee_max']:.2f}, estadia "
+          f"{te['estadia_mun_iee']:.1f} dias)")
     if {"Visita corta", "Larga estancia"} <= set(pc.index) and \
             pc.loc["Visita corta", "presion_finde"] <= pc.loc["Larga estancia", "presion_finde"]:
-        _aviso("Visita corta NO depende mas del fin de semana que larga estancia: revise la huella semanal y su texto.")
+        print("  (info) Visita corta no depende mas del fin de semana que larga estancia; el texto del modulo 4 lo atribuye a los hubs.")
     if te["estabilidad"] < 0.8:
         _aviso("k-medias cambia de clase al quitar un municipio en mas del 20 % de los casos: presentelo solo como contraste.")
 
@@ -144,8 +152,7 @@ def main() -> None:
         return
     rep = etl.ejecutar()
     calidad(rep)
-    t = {n: pd.read_parquet(etl.PROCESADOS / f"{n}.parquet") for n in ["mensual", "diaria", "migracion_mensual", "ocupacion", "oferta"]}
-    r = hallazgos.resumen(t["mensual"], t["diaria"], t["migracion_mensual"], t["ocupacion"], t["oferta"], etl.CONFIG)
+    r = hallazgos.resumen(*hallazgos.cargar(etl.PROCESADOS), etl.CONFIG, **hallazgos.cargar_opcionales(etl.PROCESADOS))
     lecturas(r)
     print("\nSi aparece [REVISAR], ajuste el texto de la pagina indicada o la configuracion antes de presentar.")
 

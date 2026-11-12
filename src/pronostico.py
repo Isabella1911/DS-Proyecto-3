@@ -82,3 +82,27 @@ def estimar(obs: pd.Series, mig: pd.DataFrame, faltantes: list[str], anios_perfi
         rmse=float(np.sqrt((err**2).mean())),
         mape=float((err.abs() / val["observado"]).mean() * 100),
     )
+
+
+def consistencia_diaria(obs: pd.Series, diaria: pd.DataFrame, estimados: pd.Series) -> pd.DataFrame:
+    """Verificacion con la base diaria (la guia pide que la estimacion sea consistente con la forma
+    de la afluencia dentro del mes). La base diaria NO se proyecta ni se suma.
+
+    rotacion(t) = visitantes unicos del mes / presencia diaria media del mes, en los meses con ambas
+    bases completas (>= 28 dias). Si la rotacion es estable, la presencia diaria que implica cada
+    estimacion (estimado / rotacion media) debe caer dentro del rango de presencia diaria observado.
+    """
+    pres = diaria.dropna(subset=["visitantes"])
+    por_mes = pres.groupby(pres.index.to_period("M").to_timestamp())["visitantes"].agg(["mean", "size"])
+    por_mes = por_mes[por_mes["size"] >= 28]
+    t = pd.DataFrame({"mensual": obs.dropna(), "presencia_media": por_mes["mean"]}).dropna()
+    t["rotacion"] = t["mensual"] / t["presencia_media"]
+    t["tipo"] = "Observado"
+    if len(t):
+        r = t["rotacion"].mean()
+        est = pd.DataFrame({"mensual": estimados, "presencia_media": estimados / r, "rotacion": r, "tipo": "Estimación"})
+        t = pd.concat([t, est]).sort_index()
+        t.attrs.update(rotacion_media=float(r), rotacion_cv=float(t.loc[t["tipo"] == "Observado", "rotacion"].std() / r),
+                       rango=(float(por_mes.loc[por_mes.index.isin(t.index), "mean"].min()),
+                              float(por_mes.loc[por_mes.index.isin(t.index), "mean"].max())))
+    return t
