@@ -569,3 +569,22 @@ def fig_cobertura(t: pd.DataFrame, marcar: list[str] | None = None) -> go.Figure
     fig.update_xaxes(showgrid=False, tickangle=0, tickfont=dict(size=10), type="category",
                      tickmode="array", tickvals=trimestres, ticktext=texto)
     return aplicar_estilo(fig, alto=300)
+
+
+def fig_uso_capacidad(t: pd.DataFrame) -> go.Figure:
+    """Barras por anio: indice publicado (verde) y ocupacion sobre el inventario registrado (azul claro)."""
+    x = [str(a) for a in t.index]
+    fig = go.Figure()
+    fig.add_bar(x=x, y=t["ocupacion_publicada"], name="Índice publicado (establecimientos que reportan)",
+                marker_color=COLOR_OCUPACION, text=[f"{v:.0%}" for v in t["ocupacion_publicada"]], textposition="outside",
+                cliponaxis=False, hovertemplate="%{x}: %{y:.0%}<extra>Índice publicado</extra>")
+    fig.add_bar(x=x, y=t["ocupacion_inventario"], name="Ocupación sobre el inventario registrado",
+                marker=dict(color="#9ec5f4", line=dict(color="#256abf", width=1)),
+                text=[f"{v:.0%}" for v in t["ocupacion_inventario"]], textposition="outside", cliponaxis=False,
+                customdata=list(zip(t["cobertura"], t["inventario"])),
+                hovertemplate="%{x}: %{y:.0%}<br>cobertura del índice %{customdata[0]:.0%} de %{customdata[1]:,.0f} "
+                              "habitaciones<extra>Sobre inventario</extra>")
+    fig.update_layout(barmode="group")
+    fig.update_xaxes(type="category")
+    fig.update_yaxes(title_text="Habitaciones ocupadas", tickformat=".0%", range=[0, 1])
+    return aplicar_estilo(fig, alto=320)

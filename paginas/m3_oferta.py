@@ -23,7 +23,7 @@ def nombre_propio(texto: str) -> str:
     palabras = str(texto).lower().split()
     return " ".join(p if (i and p in menores) else p.capitalize() for i, p in enumerate(palabras))
 from src.graficas import (
-    MES_ES, fig_afluencia_relativa, fig_barras_pct, fig_capacidad, fig_capacidad_anual, fig_cruce_ventana, fig_heatmap_ocupacion,
+    MES_ES, fig_afluencia_relativa, fig_barras_pct, fig_capacidad, fig_uso_capacidad, fig_capacidad_anual, fig_cruce_ventana, fig_heatmap_ocupacion,
     fig_ocupacion,
 )
 from src.normalizar import departamento
@@ -139,6 +139,35 @@ with c4, mosaico(
     perfil_mes = matriz.mean()
     st.caption(f"Meses más llenos en promedio: {', '.join(MES_ES[i - 1] for i in perfil_mes.nlargest(3).index)}. "
                f"Más vacíos: {', '.join(MES_ES[i - 1] for i in perfil_mes.nsmallest(3).index)}.")
+
+# --- Uso real de la capacidad: indice publicado frente al inventario -------------------------------------
+uso = of.uso_capacidad(boletin, anual, o_dep)
+if not uso.empty:
+    c_u1, c_u2 = st.columns([1.3, 1], gap="small")
+    with c_u1, mosaico(
+        "m3-inventario", "Índice de ocupación publicado y ocupación sobre el inventario registrado",
+        f"{DEPTO}, {uso.index.min()} a {uso.index.max()}. Porcentaje de habitaciones ocupadas", "observado",
+        "**¿Qué tan ocupada está realmente la capacidad formal?**\n\n"
+        "- **Índice publicado**: ocupación de los establecimientos que reportan al INGUAT.\n"
+        "- **Ocupación sobre inventario** = habitaciones-noche ocupadas del año (boletines) ÷ (habitaciones registradas "
+        "en la oferta × 365).\n"
+        "- **Cobertura del índice** = habitaciones implícitas en el índice (ocupadas ÷ índice ÷ días del mes) ÷ "
+        "inventario.\n\nNo se suman fuentes: se comparan dos registros del mismo universo hotelero formal.",
+    ):
+        grafica(fig_uso_capacidad(uso), "m3_inventario")
+    with c_u2, st.container(key="tile-m3-inventario-lectura"):
+        st.html('<div class="ot-tt">Uso real de la capacidad formal</div><div class="ot-ts">Boletines, oferta e índice oficial</div>')
+        a0_, a1_ = uso.index.min(), uso.index.max()
+        nota("observado", f"En {a1_} el índice publicado fue {uso.loc[a1_, 'ocupacion_publicada']:.0%}, pero las "
+             f"{formato_numero(uso.loc[a1_, 'habitaciones_ocupadas'])} habitaciones-noche ocupadas equivalen al "
+             f"{uso.loc[a1_, 'ocupacion_inventario']:.0%} de las {formato_numero(uso.loc[a1_, 'inventario'])} habitaciones "
+             f"registradas. El índice se calcula sobre unas {formato_numero(uso.loc[a1_, 'habitaciones_indice'])} "
+             f"habitaciones: el {uso.loc[a1_, 'cobertura']:.0%} del inventario, frente al {uso.loc[a0_, 'cobertura']:.0%} en {a0_}.")
+        nota("observado", f"Entre {a0_} y {a1_} el inventario creció {uso.loc[a1_, 'inventario'] / uso.loc[a0_, 'inventario'] - 1:.0%} "
+             f"y las habitaciones ocupadas {uso.loc[a1_, 'habitaciones_ocupadas'] / uso.loc[a0_, 'habitaciones_ocupadas'] - 1:.0%}.")
+        nota("interpretacion", "La capacidad formal crece más rápido que la demanda que la ocupa, y el índice publicado "
+             "no lo refleja porque su base no siguió al inventario. Antes de usarlo para orientar inversiones o nueva "
+             "capacidad, conviene publicarlo junto con su cobertura y con la ocupación sobre el inventario.")
 
 # --- Ventana coincidente: triangulacion telefonia x hoteleria formal ------------------------------------
 ORIGENES_CRUCE = {"Extranjeros (no residentes)": "Extranjero", "Nacionales (residentes)": "Nacional"}

@@ -98,6 +98,26 @@ def resumen_cruce(cruce: pd.DataFrame) -> pd.DataFrame:
     return pd.DataFrame.from_dict(filas, orient="index")
 
 
+def uso_capacidad(boletin: pd.DataFrame | None, anual: pd.DataFrame, ocupacion: pd.Series) -> pd.DataFrame:
+    """Indice publicado frente a la ocupacion sobre el inventario registrado, por anio.
+
+    - habitaciones_indice = habitaciones ocupadas / indice / dias del mes (promedio del anio): tamano implicito
+      de la base sobre la que se calcula el indice (establecimientos que reportan).
+    - cobertura = habitaciones_indice / habitaciones del inventario (corte de cierre de anio).
+    - ocupacion_inventario = habitaciones-noche ocupadas / (habitaciones del inventario x 365).
+    """
+    if boletin is None or boletin.empty:
+        return pd.DataFrame()
+    b = boletin.assign(hab_indice=boletin["hab_total"] / boletin["ocupacion"] / boletin["periodo"].dt.days_in_month)
+    t = b.groupby("anio").agg(habitaciones_ocupadas=("hab_total", "sum"), habitaciones_indice=("hab_indice", "mean"))
+    t = t[t.index.isin(anual.index)]
+    t["inventario"] = t.index.map(anual["habitaciones"])
+    t["cobertura"] = t["habitaciones_indice"] / t["inventario"]
+    t["ocupacion_inventario"] = t["habitaciones_ocupadas"] / (t["inventario"] * 365)
+    t["ocupacion_publicada"] = t.index.map(ocupacion.groupby(ocupacion.index.year).mean())
+    return t
+
+
 def matriz_ocupacion(ocup: pd.DataFrame, departamento: str) -> pd.DataFrame:
     """Ocupacion del departamento como tabla anio x mes (1 a 12); los meses sin dato quedan vacios."""
     o = ocup[ocup["departamento"] == departamento]

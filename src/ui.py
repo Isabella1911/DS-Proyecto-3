@@ -41,7 +41,7 @@ FUENTES_MOSAICO = {
     "m2-diaria": [_TEL_D], "m2-lift": [_TEL_D], "m2-semana": [_TEL_D], "m2-estimacion": [_TEL_M, _MIG],
     "m2-validacion": [_TEL_M, _MIG], "m2-perfil": [_MIG], "m2-consistencia": [_TEL_M, _TEL_D],
     "m3-cap-anual": [_OFERTA], "m3-cap-tipo": [_OFERTA], "m3-ocup": [_OCUP], "m3-heat": [_OCUP],
-    "m3-ventana": [_TEL_M, _BOL, _OCUP], "m3-hosp": [_FRON], "m3-puesto": [_FRON], "m3-sub": [_TEL_M],
+    "m3-ventana": [_TEL_M, _BOL, _OCUP], "m3-inventario": [_BOL, _OFERTA, _OCUP], "m3-hosp": [_FRON], "m3-puesto": [_FRON], "m3-sub": [_TEL_M],
     "m4-cuadrante": [_TEL_M, _TEL_D], "m4-mapa": [_TEL_M, "mapa base © OpenStreetMap, © CARTO"],
     "m4-matriz": [_TEL_M, _TEL_D], "m4-huella": [_TEL_D], "m4-mercados": [_TEL_M], "m4-estac": [_TEL_M],
     "m4-serie": [_TEL_M], "m4-semana": [_TEL_D], "m4-paises": [_TEL_M],
