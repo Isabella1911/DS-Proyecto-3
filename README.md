@@ -68,12 +68,12 @@ tablero detecta que cambiaron los archivos y vuelve a correr el ETL solo. Antes 
 ```bash
 python scripts/revisar_datos.py            # controles, cobertura y cifras de los textos de lectura; marca [REVISAR]
 python scripts/revisar_datos.py --esquema  # solo columnas, tipos y filas (sirve para fuentes nuevas)
-python scripts/generar_memoria.py          # regenera la memoria con las cifras reales (requiere pandoc)
+python scripts/generar_memoria.py          # regenera la memoria con las cifras reales
 ```
 
 Ambos scripts imprimen solo agregados, nunca filas de las bases. La memoria necesita además
-`pip install -r requirements-memoria.txt`, [pandoc](https://pandoc.org/installing.html) (o `pip install pypandoc_binary`)
-y Chrome/Chromium para exportar las figuras (si no está en el PATH: `BROWSER_PATH=/ruta/a/chrome`).
+`pip install -r requirements-memoria.txt` y Chrome/Chromium para exportar las figuras
+(si no está en el PATH: `BROWSER_PATH=/ruta/a/chrome`). El documento se construye directamente en Word con python-docx.
 
 ## Estructura
 
@@ -94,7 +94,9 @@ src/
 scripts/generar_sinteticos.py   Datos sintéticos con la estructura exacta de las 5 bases
 scripts/revisar_datos.py        Revisión de las bases reales antes de presentar
 scripts/generar_memoria.py      Memoria técnica en DOCX con las cifras vigentes
-scripts/maquetar_memoria.py     Maquetación de la memoria: portada, estilos, tablas, encabezado y pie
+scripts/informe_docx.py         Construcción del informe en Word: tablas con ancho fijo, leyendas, recuadros
+scripts/maquetar_memoria.py     Portada, encabezado, pie y numeración de páginas de la memoria
+scripts/fichas_indicadores.py   Lectura de las fichas de indicadores para el informe
 config/config.yaml         Rutas, patrones de archivo, meses a estimar, ventana coincidente
 tests/                     Reglas metodológicas y pruebas de humo de todas las páginas
 data/                      (no versionada) raw/, sinteticos/, procesados/

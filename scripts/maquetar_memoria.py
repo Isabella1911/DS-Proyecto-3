@@ -1,6 +1,6 @@
-"""Maquetacion profesional de la memoria tecnica (etapa posterior a pandoc).
+"""Elementos de pagina de la memoria tecnica y utilidades OOXML compartidas con informe_docx.py.
 
-pandoc convierte el contenido; este modulo aplica el formato de informe:
+Aplica el formato de informe:
 
 - Tamano carta, margenes de 2.5 cm y encabezado y pie en todas las paginas salvo la portada.
 - Portada institucional con titulo, destinatario, equipo, fecha, version y aviso de uso.

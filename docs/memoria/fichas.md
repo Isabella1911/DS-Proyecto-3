@@ -50,7 +50,7 @@
 | 5. Nivel de agregación y granularidad | Mes (gráfica) y periodo (indicador) |
 | 6. Unidad de medida | Porcentaje |
 | 7. Fuente de datos de origen | `BD_moviidad_mensual.xlsx` / *Atitlan* / `es_consecutivo`, `visitantes` |
-| 8. Reglas de negocio y exclusiones | `es_consecutivo` "mayor a 1" = turista, "menor a 1" = excursionista (menos de 24 h). Valores no reconocidos van al reporte de calidad. Barras de personas y línea de porcentaje en ejes separados. |
+| 8. Reglas de negocio y exclusiones | `es_consecutivo` "mayor a 1" = turista, "menor a 1" = excursionista (menos de 24 h). Valores no reconocidos van al reporte de calidad. El porcentaje se rotula sobre cada barra; no se usa un eje secundario. |
 
 ### I-05 Visitantes extranjeros por mes e índice de especialización extranjera (IEE)
 
@@ -203,27 +203,27 @@
 
 | Campo | Contenido |
 |:------|:-----------------------------------------------------------|
-| 1. Nombre del indicador | Capacidad instalada (establecimientos, habitaciones, plazas cama) y su crecimiento |
+| 1. Nombre del indicador | Capacidad instalada (establecimientos, habitaciones y plazas cama) |
 | 2. Definición de negocio | Inventario de alojamiento formal de Sololá al cierre de cada año. |
 | 3. Fórmula matemática | $C_a = \sum_{\text{tipo}} C_{a,\text{T4},\text{tipo}}$; crecimiento $= C_{a_1}/C_{a_0} - 1$ |
 | 4. Implementación en código | `anual = of.capacidad_anual(of.capacidad(oferta, "Sololá")); anual["plazas_cama"].iloc[-1] / anual["plazas_cama"].iloc[0] - 1` |
 | 5. Nivel de agregación y granularidad | Año (corte del cuarto trimestre) y tipo de alojamiento |
 | 6. Unidad de medida | Establecimientos, habitaciones o plazas cama |
 | 7. Fuente de datos de origen | `oferta_hotelera_2022_2026.csv` / `anio`, `trimestre`, `departamento`, `tipo_alojamiento`, `establecimientos`, `habitaciones`, `plazas_cama` |
-| 8. Reglas de negocio y exclusiones | El corte 2026-T1 es parcial (repite valores del año previo): se dibuja con trama y no entra al crecimiento. |
+| 8. Reglas de negocio y exclusiones | Inventario, no flujo: los cortes se presentan como barras por año y no como tendencia. El corte 2026-T1 es parcial y se identifica con trama. |
 
 ### I-17 Tasa de ocupación hotelera
 
 | Campo | Contenido |
 |:------|:-----------------------------------------------------------|
-| 1. Nombre del indicador | Tasa de ocupación mensual |
-| 2. Definición de negocio | Índice oficial de ocupación de los establecimientos del departamento. |
+| 1. Nombre del indicador | Tasa de ocupación hotelera (publicada y sobre inventario) |
+| 2. Definición de negocio | Proporción de habitaciones ocupadas. El índice publicado se calcula sobre los establecimientos que reportan; la ocupación sobre inventario usa todas las habitaciones registradas y mide la utilización real de la capacidad. |
 | 3. Fórmula matemática | Valor de la fuente; si viene en porcentaje se divide entre 100 |
-| 4. Implementación en código | `ocup[ocup["departamento"] == "Sololá"].set_index("periodo")["ocupacion"]` |
+| 4. Implementación en código | `ocup.query("departamento == 'Sololá'")["ocupacion"]`; `bol.groupby("anio")["hab_total"].sum() / (anual["habitaciones"] * 365)` |
 | 5. Nivel de agregación y granularidad | Departamento x mes (2023 a 2025) |
 | 6. Unidad de medida | Porcentaje |
-| 7. Fuente de datos de origen | `indice_ocupacion_mensual_2023_2025_1.csv` / `anio`, `mes`, `departamento`, `indice_ocupacion` |
-| 8. Reglas de negocio y exclusiones | Un mes sin dato nunca se toma como 0 %. Valores fuera de 0 a 1 son error de calidad. Nunca comparte eje con personas. |
+| 7. Fuente de datos de origen | `indice_ocupacion_mensual_2023_2025_1.csv` (`indice_ocupacion`); boletines de ocupación (habitaciones ocupadas); `oferta_hotelera_2022_2026.csv` (habitaciones) |
+| 8. Reglas de negocio y exclusiones | Un mes sin dato nunca se toma como 0%. La cobertura implícita del índice (habitaciones de la muestra ÷ inventario) debe reportarse junto con él. No comparte eje con personas. |
 
 ### I-18 Captación formal de noches (ventana coincidente)
 
