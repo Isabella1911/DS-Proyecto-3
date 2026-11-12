@@ -17,15 +17,8 @@ visual, la paleta validada y la estimación con la base de migración de los Lab
 - Fabian Prado Dluzniewski
 - Luis Fernando Mendoza Alvarez
 
-## Estado (avance)
-
-| Módulo | Estado | Contenido |
-|---|---|---|
-| 1 · Demanda y mercados emisores | ✅ Completo | KPIs (visitantes/mes, días-persona, estadía media ponderada), turista vs. excursionista, top 10 extranjeros + nacionales aparte, estadía por nacionalidad. Gráfica de municipios enlazada a todo el módulo. |
-| 2 · Dinámica temporal y pronóstico | ✅ Completo | Serie diaria con selector de festividad y Lift (simple y ajustado), patrón semanal, estimación ene–feb 2026 con dos métodos sobre migración, validación MAPE/MAE/RMSE. Gráfica de Lift enlazada a la serie diaria. |
-| 3 · Oferta hotelera | ✅ Completo | Capacidad instalada anual y por tipo (2026 parcial marcado), ocupación 2023–2025 y calendario de ocupación, ventana coincidente con noches demandadas vs. plazas-noche, afluencia relativa entre municipios. Clic en un año de capacidad → ocupación de ese año. |
-| 4 · Red de municipios | ✅ Completo | Cuadrante volumen × estadía × % extranjeros, clasificación por regla contrastada con k-medias, matriz de perfiles, huella semanal por pueblo, mercados y estacionalidad por clase, perfil del municipio y hallazgos. Clic en el cuadrante → perfil. |
-
+## Video
+https://youtube.com/playlist?list=PLPVO6MPR2Zdc&si=6uG265zrCGJTJKzM 
 ## Cómo correrlo
 
 ### Con Docker (recomendado)
